@@ -1,29 +1,29 @@
 
 % Required parameters
 % 1. Define reconstruction parameters
-output_image_size = 100*[1 1 1];
-overgrid_factor = 3;
-kernel.sharpness = 0.43;
-kernel.extent = 9*kernel.sharpness;
-% kernel.extent = 2;
+output_image_size = 64*[1 1 1];
+overgrid_factor = 2;
+% kernel.sharpness = 0.3;
+% kernel.extent = 6*kernel.sharpness;
+kernel.extent = 1.5;
 verbose = 1;
-nPipeIter = 10;
+nPipeIter = 1;
 
-pfile_path = filepath('C:\Users\Scott\Documents\data\mouse\CONTROL_CLEP_04Sept\129Xe_vent\P25600.7')
+pfile_path = filepath('C:\Users\Scott\Documents\data\mouse\')
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
 
 pfileOverride.rdb.rdb_hdr_user1  = 0.992; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
-pfileOverride.rdb.rdb_hdr_user44 = 2.976; % pw_gxw/1000
-pfileOverride.rdb.rdb_hdr_user22 = 0.006; %toff
+pfileOverride.rdb.rdb_hdr_user44 = 3.968; % pw_gxw/1000
+pfileOverride.rdb.rdb_hdr_user22 = 0.036; %toff
 pfileOverride.rdb.rdb_hdr_user23 = 137.508;
 pfileOverride.rdb.rdb_hdr_user32 = 1;
 
 % Gradient delays
 delays.x_delay = 0.000;
-delays.y_delay = 0.000;
+delays.y_delay = 0.00;
 delays.z_delay = 0.000;
 
 %Optional parameters
@@ -36,6 +36,7 @@ pfile = GE.Pfile.read(pfile_path);
 pfile = convertLegacyPfile(pfile);
 
 % Override header values (optional)
+displayPfileHeaderInfo(pfile);
 pfile = overridePfile(pfile, pfileOverride);
 if(verbose)
     % Display key header info
@@ -52,7 +53,7 @@ pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 radialDistance = MRI.Trajectories.Centric.Radial.calcRadialRay(pfile, delays, output_image_size);
 
 % 	% Only keep data during gradients on
-% 	[radialDistance, pfile] = removeNonReadoutSamples(radialDistance, pfile);
+[radialDistance, pfile] = MRI.DataProcessing.removeNonReadoutSamples(radialDistance, pfile);   
 
 % Distribute rays onto 3d sphere
 traj = MRI.Trajectories.Centric.Distribute.calculate3dTrajectories(radialDistance, pfile);
@@ -80,14 +81,14 @@ MRI.DataProcessing.calculateNyquistMatrixSize(radialDistance, pfile);
 
 %% Reconstruct data
 % Choose kernel
-kernelObj = Recon.SysModel.Kernel.Gaussian(kernel.sharpness, kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.Triangle(kernel.extent, verbose);
+% kernelObj = Recon.SysModel.Kernel.Gaussian(kernel.sharpness, kernel.extent, verbose);
+kernelObj = Recon.SysModel.Kernel.Triangle(kernel.extent, verbose);
 % kernelObj = Recon.SysModel.Kernel.KaiserBessel(kernel.sharpness, kernel.extent, verbose);
 % kernelObj = Recon.SysModel.Kernel.Sinc(kernel.sharpness, kernel.extent, verbose);
 
 % Choose Proximity object
-proxObj = Recon.SysModel.Proximity.L2Proximity(kernelObj, verbose);
-% proxObj = Recon.SysModel.Proximity.L1Proximity(kernelObj, verbose);
+% proxObj = Recon.SysModel.Proximity.L2Proximity(kernelObj, verbose);
+proxObj = Recon.SysModel.Proximity.L1Proximity(kernelObj, verbose);
 clear kernelObj;
 
 % Create System model
@@ -103,7 +104,8 @@ dcfObj = Recon.DCF.Iterative(systemObj, nPipeIter, verbose);
 
 % Choose Reconstruction Model
 reconObj = Recon.ReconModel.LSQGridded(systemObj, dcfObj, verbose);
-% reconObj.deapodize = 0; % Cant deapodize analytical sinc DC = 0
+reconObj.crop = 1;
+reconObj.deapodize = 1; % Cant deapodize analytical sinc DC = 0
 % reconObj = Recon.ReconModel.ConjugateGradient(systemObj, 10, verbose);
 % clear modelObj;
 % clear dcfObj;

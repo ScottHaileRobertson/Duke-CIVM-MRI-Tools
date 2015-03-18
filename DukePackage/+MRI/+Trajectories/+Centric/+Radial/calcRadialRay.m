@@ -43,6 +43,9 @@ radialDistance = zeros(nPts,2);
 radialDistance(:,1) = calcRadDist(outputSize(1),delays.x_delay);
 radialDistance(:,2) = calcRadDist(outputSize(2),delays.y_delay);
 radialDistance(:,3) = calcRadDist(outputSize(2),delays.z_delay);
+if(any(isnan(radialDistance(:))))
+    error('Error in calculating radial distance');
+end
 
 	function radialDistance = calcRadDist(outSz,gradientDelay)
 		% Calculate sample number of each region boundary

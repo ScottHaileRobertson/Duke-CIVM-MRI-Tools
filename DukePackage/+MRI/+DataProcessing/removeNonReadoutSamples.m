@@ -12,7 +12,7 @@ function [radialDist, pfile] = ...
 % Pull relavent info out of pfile
 bw = pfile.rdb.rdb_hdr_user12;                 % Receiver bandwidth (kHz)
 dwell_time = 1/(2*bw);                                             % Time between each sample
-dwell_time = nearestMultipleOf(dwell_time,0.002); % Dwell time must be an integer multible of 2us
+dwell_time = Math.nearestMultipleOf(dwell_time,0.002); % Dwell time must be an integer multible of 2us
 grad_delay_time = pfile.rdb.rdb_hdr_user22;    % Time between ADC on and start of gradient ramp
 ramp_time = pfile.rdb.rdb_hdr_user1;           % Time to ramp gradients
 decay_time = pfile.rdb.rdb_hdr_user38;
@@ -43,8 +43,8 @@ if(start_nonreadout_pts < npts)
 		'Please decrease the number of points to avoid this.']);
 	
 	% Remove data and radial traj that occur after decay ramp
-	radialDist(start_nonreadout_pts:end) = [];
-	data(start_nonreadout_pts:end,:)=[];
+	radialDist(start_nonreadout_pts:end,:) = [];
+	pfile.data(start_nonreadout_pts:end,:)=[];
 	
 	% Update header to keep it in sync with data
 	pfile.rdb.rdb_hdr_frame_size = start_nonreadout_pts-1;
