@@ -2,14 +2,14 @@
 % Required parameters
 % 1. Define reconstruction parameters
 output_image_size = 64*[1 1 1];
-overgrid_factor = 2;
+overgrid_factor = 9;
 kernel.sharpness = 0.2;
-kernel.extent = 6*kernel.sharpness;
+kernel.extent = 9*kernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 10;
 
-pfile_path = filepath('C:\Users\Scott\Desktop\P35840.7')
+pfile_path = filepath()
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
@@ -124,7 +124,7 @@ reconVol = reconObj.reconstruct(pfile.data, traj);
 imslice(abs(reconVol));
 
 % save the result
-% [pathstr,name,ext] = fileparts(pfile_path);
-% niiname = [pathstr name '_recon.nii'];
-% nii = make_nii(abs(reconVol));
-% save_nii(nii,niiname,16);
+[pathstr,name,ext] = fileparts(pfile_path);
+niiname = [pathstr filesep() name '_recon.nii'];
+nii = make_nii(abs(reconVol));
+save_nii(nii,niiname,16);

@@ -9,7 +9,7 @@ kernel.extent = 9*kernel.sharpness;
 verbose = 1;
 nPipeIter = 10;
 
-pfile_path = filepath('C:\Users\Scott\Documents\data\mouse\')
+pfile_path = filepath()
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
@@ -118,7 +118,7 @@ reconVol = reconObj.reconstruct(pfile.data, traj);
 imslice(abs(reconVol));
 
 % save the result
-% [pathstr,name,ext] = fileparts(pfile_path);
-% niiname = [pathstr name '_recon.nii'];
-% nii = make_nii(abs(reconVol));
-% save_nii(nii,niiname,16);
+[pathstr,name,ext] = fileparts(pfile_path);
+niiname = [pathstr filesep() name '_recon.nii'];
+nii = make_nii(abs(reconVol));
+save_nii(nii,niiname,16);
