@@ -13,6 +13,10 @@ MRI.DataProcessing.checkForOverranging(pfile);
 % Remove baselines
 pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 
+% Line broaden data
+lineBroadening = 5; %Hz
+pfile = MRI.DataProcessing.lineBroaden(pfile, lineBroadening);
+
 % discard first view, update header
 pfile.data = pfile.data(:,2:end);
 pfile.rdb.rdb_hdr_user20 = size(pfile.data,2);
@@ -24,7 +28,7 @@ pfile.rdb.rdb_hdr_user20 = 1; % Update header to only have one averaged frame
 %% Prepare for spectroscopy fitting
 %Create array of sample times (sec)
 npts = pfile.rdb.rdb_hdr_frame_size;                   % Number of samples
-bw = 1000*pfile.rdb.rdb_hdr_user12;                    % Receiver bandwidth (kHz)
+bw = 1000*pfile.rdb.rdb_hdr_user12;                    % Receiver bandwidth (Hz)
 dwell_time = 1/(2*bw);                                 % Time between each sample
 dwell_time = Math.nearestMultipleOf(dwell_time,0.000002); % Dwell time must be an integer multible of 2us
 t = dwell_time*(0:(npts-1));
