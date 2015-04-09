@@ -30,9 +30,6 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             if(nargin == 5)
                 obj.fref = varargin{1};
             end
-            
-            % Resort object by frequencies
-            obj = obj.sortByFreq();
         end
         
         function obj = addComponent(obj,amplitude, frequency, fwhm, phase)
@@ -41,19 +38,11 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             obj.fwhm = [obj.fwhm; fwhm];
             obj.phase = [obj.phase; phase];
             
-            % Resort object by frequencies
             obj = obj.sortByFreq();
         end
         
-        function obj = sortByFreq(obj)
-            % Sort frequencies
-            [sortFreq sortIdx] = sort(obj.freq, 'descend');
-            
-            % resort object
-            obj.amp = obj.amp(sortIdx);
-            obj.freq = obj.freq(sortIdx);
-            obj.fwhm = obj.fwhm(sortIdx);
-            obj.phase = obj.phase(sortIdx);
+        function obj = sortByFreq();
+            [sortFreq sortIdx]
         end
         
         function obj = removeComponents(obj, componentNumbers)
@@ -183,9 +172,6 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             
             % Refit all components after addition of latest component
             obj = obj.fitTimeDomainSignal(timeDomainSignal, t);
-            
-            % Resort object by frequencies
-            obj = obj.sortByFreq();
         end
         
         function obj = autoAddComponents(obj, timeDomainSignal, t, nComponents)
@@ -197,9 +183,6 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             for iComp = 1:nIter
                 obj = obj.autoAddComponent(timeDomainSignal,t);
             end
-            
-            % Resort object by frequencies
-            obj = obj.sortByFreq();
         end
         
         function obj = fitTool(obj,timeDomainSignal,t)
@@ -235,9 +218,6 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
                 
                 % Show fit
                 temp_NMR_Mix.plotFit(timeDomainSignal,t)
-                
-                % Resort object by frequencies
-                obj = obj.sortByFreq();
                 
                 % Report new fits
                 obj
@@ -276,7 +256,6 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             fitoptions.MaxIter = 5000;
             fitoptions.TolFun=1E-900;
             fitoptions.TolX = 1E-900;
-            fitoptions.FinDiffType = 'central';
             fitoptions.MaxFunEvals = 1000;
             [fit_params,resnorm,residual,exitflag,output,lambda,jacobian] = ...
                 lsqcurvefit(fitfunc,guess_compMat,t,timeDomainSignal,lb,ub,fitoptions);

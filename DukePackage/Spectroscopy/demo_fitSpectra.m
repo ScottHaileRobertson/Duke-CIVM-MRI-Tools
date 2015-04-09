@@ -1,7 +1,7 @@
 % This is a demo script that will fit a spectroscopy file 
 
 % Find pfile
-pfile_path = filepath('C:\Users\Scott\Desktop\rohan_20150331\')
+pfile_path = filepath('C:\Users\Scott\Desktop\rohan_20150331\P33792.7')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -14,7 +14,7 @@ MRI.DataProcessing.checkForOverranging(pfile);
 pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 
 % Line broaden data
-lineBroadening = 5; %Hz
+lineBroadening = 0; %Hz
 pfile = MRI.DataProcessing.lineBroaden(pfile, lineBroadening);
 
 % discard first view, update header
@@ -35,13 +35,13 @@ t = dwell_time*(0:(npts-1));
 
 %% Fit spectra
 %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-fit_guess = [   1             102           100          0; % Component #1
-                1            31           100          0; % Component #2
-                1           -8           100          0; % Component #3
-                1           -75           100          0;% Component #4
-                1           -110           100          0;% Component #5
-                1           -4646           100          0;% Component #6
-                1           -4725           100          0];% Component #7
+fit_guess = [   1           160           100          0; % Component #1
+                1           102           100          0; % Component #2
+                1            31           100          0; % Component #3
+                1            -8           100          0; % Component #4
+                1           -75           100          0; % Component #5
+                1          -110           100          0; % Component #6
+                1         -4646           100          0];% Component #7
 center_freq = pfile.rdb.rdb_hdr_ps_mps_freq/10;
 nmrMix = NMR_Mix(fit_guess(:,1),fit_guess(:,2),fit_guess(:,3),fit_guess(:,4),center_freq);
 % nmrMix = NMR_Mix([],[],[],[],center_freq);
@@ -53,5 +53,5 @@ nmrMix = nmrMix.fitTimeDomainSignal(pfile.data,t);
 % nmrMix = nmrMix.fitTool(pfile.data, t)
 
 %% Display the final fit
-nmrMix.displayFit(pfile.data,t);
+nmrMix.plotFit(pfile.data,t);
 

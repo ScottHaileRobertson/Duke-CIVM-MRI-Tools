@@ -15,10 +15,10 @@ function traj = calculate3dTrajectories(radialDistance, pfile)
 	per_nufft = pfile.rdb.rdb_hdr_user32;
 	
     % Choose trajectory calculations based on per_nufft
-%     if ( per_nufft == 1)
+    if ( per_nufft == 1)
          traj = MRI.Trajectories.Centric.Distribute.ArchimedianSpiral(radialDistance, pfile);
-%     end
-%     if (per_nufft == 0)
-%         traj = double(MRI.Trajectories.Centric.Distribute.GoldenMeans(radialDistance, pfile));
-% 	end
+    end
+    if (per_nufft == 0)
+        traj = double(MRI.Trajectories.Centric.Distribute.GoldenMeans(radialDistance, pfile));
+	end
 end
