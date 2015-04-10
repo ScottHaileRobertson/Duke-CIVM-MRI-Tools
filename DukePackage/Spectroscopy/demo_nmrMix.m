@@ -9,26 +9,20 @@ freq = [-4E3 30 400 ]';   %Hz
 phase = [0 -20 45]';     %deg
 % fwhm = 1./(pi*tau) %Hz
 fwhm = [100 200 300];
-nmrMix = NMR_Mix(amp, freq, fwhm, phase);
-
-% Calculate temporal frequencies (for FFT)
-f = NMR_Mix.calcFftFreq(t);
+nmrMix = NMR_Mix([],t,amp, freq, fwhm, phase);
 
 % Calculate signal and spectrum
-signal = sum(nmrMix.calcTimeDomainSignal(t),2);
-spectrum = sum(nmrMix.calcSpectralDomainSignal(f),2);
+signal = sum(nmrMix.calcTimeDomainSignal(),2);
+spectrum = sum(nmrMix.calcSpectralDomainSignal(),2);
 
 % add noise
-noisySignal = signal;% + 0*([rand(size(signal)) + 1i*rand(size(signal))]-[0.5+0.5i]);
+noisySignal = signal + 2*([rand(size(signal)) + 1i*rand(size(signal))]-[0.5+0.5i]);
 
 % Fit data in time domain
-fitMix = NMR_Mix([],[],[],[]);
-fitMix = fitMix.autoAddComponents(noisySignal, t, 3);
-
-freq_fit = fitMix.freq
-phase_fit = fitMix.phase
-amp = fitMix.amp
-fwhm = fitMix.fwhm
+fftPadSize =2048*4;
+linebroadening = 15; %Hz
+fitMix = NMR_Mix(noisySignal,nmrMix.t,[],[],[],[],fftPadSize, linebroadening,[]);
+fitMix = fitMix.autoAddComponents(3)
 
 % % Fit data in spectral domain
 % [spectralfit_amp spectralfit_freq spectralfit_fwhm spectralfit_phase] = ...
@@ -38,4 +32,4 @@ fwhm = fitMix.fwhm
 % spectralfit_spectrum = calcSpectralDomainSignal(spectralfit_amp,spectralfit_freq,spectralfit_fwhm,spectralfit_phase,f);
 % spectralfit_spectrum = sum(spectralfit_spectrum,2);
 
-fitMix.plotFit(noisySignal,t);
+fitMix.plotFit();

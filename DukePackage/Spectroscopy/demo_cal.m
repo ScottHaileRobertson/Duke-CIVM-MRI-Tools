@@ -1,7 +1,7 @@
 
 % pfile_path = filepath('/home/scott/Public/data/20150311')
 % pfile_path = '/home/scott/Desktop/Dixon/P12800.7';
-pfile_path = filepath('C:\Users\Scott\Desktop\subject002_065\P32768.7');
+% pfile_path = filepath('C:\Users\Scott\Desktop\subject002_065\P32768.7');
 pfile_path = filepath('C:\Users\Scott\Desktop\P06144.7');
 % pfile_path = filepath('C:\Users\Scott\');
 
@@ -14,6 +14,9 @@ MRI.DataProcessing.checkForOverranging(pfile);
 
 % Remove baselines
 pfile = MRI.DataProcessing.removeBaselineViews(pfile);
+
+    zeropadsize = 2048*4;
+    linebroadening = 0; %Hz
 
 % Split disolved data into separate pfile
 nDisFrames = 200;
@@ -53,27 +56,27 @@ for iTE = 1:nTE
     broaddata = avgdata;
 % 	t = (TEs(iTE)*1E-6)+(dwell_time*((1:npts) - 1)); %sec
     t = (dwell_time*((1:npts) - 1)); %sec
-    f = NMR_Mix.calcFftFreq(t);
     
     nComp = 3;
     
-    %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-    fit_guess = [   1           -7.77           175          0; % Component #1
-%                     1           -7           100          0; % Component #2
-%                     1            -3832           100          0; % Component #3
-                    1            -348           100          0; % Component #4
-                    1           -3843           100          0]; % Component #5
-%                     1          -3992           100          0]; % Component #
-                
-    nmrMix = NMR_Mix(fit_guess(:,1),fit_guess(:,2),fit_guess(:,3),fit_guess(:,4),center_freq);
-%     nmrMix = NMR_Mix([],[],[],[],center_freq);
+%     %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+%     fit_guess = [   1           -7.77           175          0; % Component #1
+% %                     1           -7           100          0; % Component #2
+% %                     1            -3832           100          0; % Component #3
+%                     1            -348           100          0; % Component #4
+%                     1           -3843           100          0]; % Component #5
+% %                     1          -3992           100          0]; % Component #
+%                 
+%     nmrMix = NMR_Mix(broaddata, t, fit_guess(:,1),fit_guess(:,2),...
+%         fit_guess(:,3),fit_guess(:,4),zeropadsize,linebroadening,center_freq);
+    nmrMix = NMR_Mix(broaddata, t,[],[],[],[],zeropadsize, linebroadening, center_freq);
     
-    nmrMix = nmrMix.fitTimeDomainSignal(broaddata,t);
-%     nmrMix = nmrMix.fitTool(broaddata, t);
-%     nmrMix = nmrMix.autoAddComponents(broaddata,t,nComp);
+%     nmrMix = nmrMix.fitTimeDomainSignal();
+%     nmrMix = nmrMix.fitTool();
+    nmrMix = nmrMix.autoAddComponents(nComp);
     
     figure();
-    nmrMix.plotFit(broaddata,t);
+    nmrMix.plotFit();
     title(['TE' num2str(iTE)]);
     
 %     % Using guess from averaged data, fit each spectrum
@@ -177,13 +180,15 @@ gas_pfile.rdb.rdb_hdr_user20 = nGasFrames; % nframes
 bw = pfile.rdb.rdb_hdr_user12;
 npts = pfile.rdb.rdb_hdr_frame_size;	
 % %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-fit_guess = [   1           -31           15          0
-     1           10           15          0]; % Component #
-gasMix = NMR_Mix(fit_guess(:,1),fit_guess(:,2),fit_guess(:,3),fit_guess(:,4),center_freq);
-gasMix = gasMix.fitTimeDomainSignal(gas_pfile.data,t)
-% gasMix = NMR_Mix([],[],[],[],center_freq);
-% gasMix = gasMix.fitTool(gas_pfile.data,t);
-gasMix.plotFit(gas_pfile.data,t);
+fit_guess = [   1           8           15          0
+     1           10           -55          0]; % Component #
+gasMix = NMR_Mix(gas_pfile.data,t,fit_guess(:,1),fit_guess(:,2),...
+    fit_guess(:,3),fit_guess(:,4),zeropadsize,linebroadening,center_freq);
+gasMix = gasMix.fitTimeDomainSignal()
+% gasMix = NMR_Mix(gas_pfile.data,t,[],[],[],[],zeropadsize,linebroadening,center_freq);
+% gasMix = gasMix.fitTool();
+figure()
+gasMix.plotFit();
 
 % Split flip calibration frames into separate pfile
 flipCal_pfile = pfile;

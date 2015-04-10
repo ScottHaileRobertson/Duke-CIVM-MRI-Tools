@@ -10,6 +10,14 @@
 classdef NMR_Mix < matlab.mixin.CustomDisplay
     
     properties
+        timeDomainSignal;
+        t;
+        spectralDomainSignal; 
+        f; 
+        
+        zeroPadSize;
+        linebroadening;
+        
         amp;   % Amplitude of each component (arbs)
         freq;  % Frequency of each component in Hz/Rad
         fwhm;  % FWHM of each component in Hz
@@ -18,21 +26,54 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
     end
     
     methods
-        function obj = NMR_Mix(amplitudes, frequencies, fwhms, phases, varargin)
-            % Constructs an NMR_Mix object with the given amplitudes
-            % (arbs),frequencies (in Hz), fwhms (in Hz), and phases (in
+        function obj = NMR_Mix(time_domain_signal, time_vec, varargin)
+            % Constructs an NMR_Mix object with the given time domain
+            % signal  and optional knowledge of component amplitudes
+            % (arbs), frequencies (in Hz), fwhms (in Hz), and phases (in
             % degrees). To start with an empty object (ex for fitting),
-            % just use NMR_mix([],[],[],[])
-            obj.amp = amplitudes(:);
-            obj.freq = frequencies(:); % In Hz
-            obj.fwhm = fwhms(:);       % In Hz
-            obj.phase = phases(:);     % In Degrees
-            if(nargin == 5)
-                obj.fref = varargin{1};
+            % just use NMR_mix(time_domain_signal, time_vec)
+            obj.t = time_vec(:);
+            obj.timeDomainSignal = time_domain_signal(:);
+            
+            if(nargin > 2)
+                obj.amp = varargin{1}(:);
+                obj.freq = varargin{2}(:); % In Hz
+                obj.fwhm = varargin{3}(:);       % In Hz
+                obj.phase = varargin{4}(:);     % In Degrees
+                
+                % Resort object by frequencies
+                obj = obj.sortByFreq();
+                if(nargin > 6)
+                    % Populate zeropadding(default is no padding)
+                    obj.zeroPadSize = varargin{5};
+                    
+                    % Populate line broadening (default is none)
+                    obj.linebroadening = varargin{6};
+                    
+                    if(nargin == 9)
+                        obj.fref = varargin{7};
+                    end
+                end
+                if(isempty(obj.zeroPadSize))
+                    obj.zeroPadSize = length(obj.t);
+                end
+                if(isempty(obj.linebroadening))
+                    obj.linebroadening = 0;
+                end
+                
+                % Calculate spectrum\
+                nSamples = length(obj.t);
+                dwell_time = (obj.t(2)-obj.t(1));
+                obj.spectralDomainSignal = dwell_time...
+                    *fftshift(fft(obj.timeDomainSignal,obj.zeroPadSize));
+                
+                % Calculate Frequencies
+                obj.f = linspace(-0.5,0.5,obj.zeroPadSize+1)/dwell_time;
+                obj.f = obj.f(1:(end-1))'; % Take off last sample to have nSamples
             end
             
-            % Resort object by frequencies
-            obj = obj.sortByFreq();
+            % Apply linebroadening
+            obj.timeDomainSignal = obj.timeDomainSignal.*exp(-obj.linebroadening*obj.t);
         end
         
         function obj = addComponent(obj,amplitude, frequency, fwhm, phase)
@@ -43,6 +84,13 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             
             % Resort object by frequencies
             obj = obj.sortByFreq();
+        end
+        
+        function obj = removeComponents(obj, componentNumbers)
+            obj.amp(componentNumbers) = [];
+            obj.freq(componentNumbers) = [];
+            obj.fwhm(componentNumbers) = [];
+            obj.phase(componentNumbers) = [];
         end
         
         function obj = sortByFreq(obj)
@@ -56,14 +104,7 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             obj.phase = obj.phase(sortIdx);
         end
         
-        function obj = removeComponents(obj, componentNumbers)
-            obj.amp(componentNumbers) = [];
-            obj.freq(componentNumbers) = [];
-            obj.fwhm(componentNumbers) = [];
-            obj.phase(componentNumbers) = [];
-        end
-        
-        function timeDomainSignal = calcTimeDomainSignal(obj,t)
+        function timeDomainSignal = calcTimeDomainSignal(obj,varargin)
             % Calculates the time domain signal from the mix of NMR
             % components at the given time points (t is in sec). Note, this
             % function returns the time signal for each individual
@@ -74,11 +115,18 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             compMat = obj.convertPhysicalToMatrix(obj.amp, ...
                 obj.freq, obj.fwhm, obj.phase);
             
+            % Get time vector from user or object if not given
+            if(nargin == 2)
+                t = varargin{1}(:);
+            else
+                t = obj.t;
+            end
+            
             % Calculate time domain signal using matrix form
             timeDomainSignal= obj.calcTimeDomainSignalFromMatrix(compMat,t);
         end
         
-        function spectralDomainSignal = calcSpectralDomainSignal(obj,f)
+        function spectralDomainSignal = calcSpectralDomainSignal(obj,varargin)
             % Calculates the spectral domain signal from the mix of NMR
             % components at the given spectral frequencies (f is in Hz).
             % Note, this function returns the spectrum for each individual
@@ -89,11 +137,18 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             compMat = obj.convertPhysicalToMatrix(obj.amp, ...
                 obj.freq, obj.fwhm, obj.phase);
             
+            % Get frequency vector from user or object if not given
+            if(nargin == 2)
+                f = varargin{1}(:);
+            else
+                f = obj.f;
+            end
+            
             % Calculate spectral domain signal using matrix form
             spectralDomainSignal = obj.calcSpectralDomainSignalFromMatrix(compMat,f);
         end
         
-        function lorentzianCurves = calcLorentzianCurves(obj,f)
+        function lorentzianCurves = calcLorentzianCurves(obj,varargin)
             % Calculates unphased lorenzian curves from the mix of NMR
             % components at the given spectral frequencies (f is in Hz).
             % Note, this function returns a curve for each individual
@@ -104,10 +159,17 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             compMat = obj.convertPhysicalToMatrix(obj.amp, ...
                 obj.freq, obj.fwhm, obj.phase);
             
+            % Get frequency vector from user or object if not given
+            if(nargin == 2)
+                f = varargin{1}(:);
+            else
+                f = obj.f;
+            end
+            
             lorentzianCurves = obj.calcLorentzianCurvesFromMatrix(compMat, f);
         end
         
-        function dispersiveCurves = calcDispersiveCurves(obj,f)
+        function dispersiveCurves = calcDispersiveCurves(obj,varargin)
             % Calculates unphased dispersive curves from the mix of NMR
             % components at the given spectral frequencies (f is in Hz).
             % Note, this function returns a curve for each individual
@@ -117,11 +179,18 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             % convert to matrix form
             compMat = obj.convertPhysicalToMatrix(obj.amp, ...
                 obj.freq, obj.fwhm, obj.phase);
+           
+            % Get frequency vector from user or object if not given
+            if(nargin == 2)
+                f = varargin{1}(:);
+            else
+                f = obj.f;
+            end
             
             dispersiveCurves = obj.calcDispersiveCurvesFromMatrix(compMat, f);
         end
         
-        function [amp freq fwhm phase] = fitComponentToResidual(obj,timeDomainSignal,t)
+        function [amp freq fwhm phase] = fitComponentToResidual(obj)
             % Fits a single exponentially decaying component to the
             % residual signal. This is useful in peak fitting. Note,
             % however, that this function only fits based on residuals,
@@ -130,34 +199,35 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             % the components as they will likely change slightly to better
             % accomodate the new compnent.
             
-            % Calculate spectrum and spectral frequencies
-            dwell_time = t(2)-t(1);
-            measuredSpectrum = dwell_time*fftshift(fft(timeDomainSignal));
-            f = obj.calcFftFreq(t);
-            
             % If there are already components, fit them first
             if(~isempty(obj.amp) | ~isempty(obj.freq) | ...
                     ~isempty(obj.fwhm) | ~isempty(obj.phase))
-                currentSpectrum = measuredSpectrum - sum(obj.calcSpectralDomainSignal(f),2);
+                currentSpectrum = obj.spectralDomainSignal - ...
+                    sum(obj.calcSpectralDomainSignal(),2);
             else
-                currentSpectrum = measuredSpectrum;
+                currentSpectrum = obj.spectralDomainSignal;
             end
             
-            % Find the frequency of the nex peak
+            % Find the frequency of the next peak
             [maxVal maxIdx] = max(abs(currentSpectrum));
-            peakFreq = f(maxIdx);
+            peakFreq = obj.f(maxIdx);
             
-            % Find the phase of this peak 
+            % Find the phase of this peak
             nPhases = 360;
             phases = linspace(-pi,pi,nPhases+1);
             phases = phases(1:(end-1));
             [maxVal maxIdx] = max(real(currentSpectrum(maxIdx).*exp(1i*phases)));
             peakPhase = 180*phases(maxIdx)/pi; % in deg
             
+%             phaseMat = repmat(phases,[length(currentSpectrum) 1]);
+%             specMat = repmat(currentSpectrum,[1 nPhases]);
+%             specMat = specMat.*phaseMat;
+            
             % Use curve fitting to fit residual signal
-            residualTimeDomainSignal = timeDomainSignal - sum(obj.calcTimeDomainSignal(t),2);
-            largestPeakComponent = NMR_Mix(1,peakFreq,10,peakPhase); %Guess amplitude and FWHM for now
-            largestPeakComponent = largestPeakComponent.fitTimeDomainSignal(residualTimeDomainSignal, t);
+            residualTimeDomainSignal = obj.timeDomainSignal - sum(obj.calcTimeDomainSignal(obj.t),2);
+            largestPeakComponent = NMR_Mix(residualTimeDomainSignal,obj.t,...
+                1,peakFreq,10,peakPhase,obj.zeroPadSize,obj.linebroadening,obj.fref); %Guess amplitude and FWHM for now
+            largestPeakComponent = largestPeakComponent.fitTimeDomainSignal();
             
             % Return fit parameters
             amp   = largestPeakComponent.amp;
@@ -166,14 +236,14 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             phase = largestPeakComponent.phase;
         end
         
-        function obj = autoAddComponent(obj,timeDomainSignal,t)
+        function obj = autoAddComponent(obj)
             % This function attemps to automatically fit and add a new
             % exponentially decaying signal to the NMR_mix object
             
             % Fit next component to residual signal, then add it to this
             % NMR_Mix object
             [add_amp add_freq, add_fwhm add_phase] = ...
-                obj.fitComponentToResidual(timeDomainSignal,t);
+                obj.fitComponentToResidual();
             
             % Add fitted component to NMR_mix
             obj.amp = [obj.amp; add_amp];
@@ -182,35 +252,30 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             obj.phase = [obj.phase; add_phase];
             
             % Refit all components after addition of latest component
-            obj = obj.fitTimeDomainSignal(timeDomainSignal, t);
+            obj = obj.fitTimeDomainSignal();
             
             % Resort object by frequencies
             obj = obj.sortByFreq();
         end
         
-        function obj = autoAddComponents(obj, timeDomainSignal, t, nComponents)
+        function obj = autoAddComponents(obj, nComponents)
             % This function attemps to automatically fit and add
             % n (defined by nComponents) new exponentially decaying signals
             % to the NMR_mix object
             
             nIter = nComponents - length(obj.amp);
             for iComp = 1:nIter
-                obj = obj.autoAddComponent(timeDomainSignal,t);
+                obj = obj.autoAddComponent();
             end
             
             % Resort object by frequencies
             obj = obj.sortByFreq();
         end
         
-        function obj = fitTool(obj,timeDomainSignal,t)
+        function obj = fitTool(obj)
             % This function attemps to adds exponentially decaying signal
             % components until the user stops the fit.
-            
-            % Calculate spectrum
-            dwell_time = t(2)-t(1);
-            f = NMR_Mix.calcFftFreq(t);
-            measuredSpectrum = dwell_time*fftshift(fft(timeDomainSignal));
-            
+                        
             % Create a figure to show results
             thisFigure = gcf();
             clf;
@@ -220,21 +285,22 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             while(continueFitting)
                 % Fit next component to residual signal, then add it to this
                 % NMR_Mix object
-                [add_amp add_freq, add_fwhm add_phase] = ...
-                    obj.fitComponentToResidual(timeDomainSignal,t);
+                [add_amp add_freq, add_fwhm add_phase] = obj.fitComponentToResidual();
                 
                 % Create temporary NRM_mix object and add newest component
-                temp_NMR_Mix = NMR_Mix(obj.amp, obj.freq, obj.fwhm, obj.phase);
+                temp_NMR_Mix = NMR_Mix(obj.timeDomainSignal, obj.t,...
+                    obj.amp, obj.freq, obj.fwhm, obj.phase, ...
+                    obj.zeroPadSize, obj.linebroadening, obj.fref);
                 temp_NMR_Mix.amp = [temp_NMR_Mix.amp; add_amp];
                 temp_NMR_Mix.freq = [temp_NMR_Mix.freq; add_freq];
                 temp_NMR_Mix.fwhm = [temp_NMR_Mix.fwhm; add_fwhm];
                 temp_NMR_Mix.phase = [temp_NMR_Mix.phase; add_phase];
                 
                 % Refit all components after addition of latest component
-                temp_NMR_Mix = temp_NMR_Mix.fitTimeDomainSignal(timeDomainSignal, t);
+                temp_NMR_Mix = temp_NMR_Mix.fitTimeDomainSignal();
                 
                 % Show fit
-                temp_NMR_Mix.plotFit(timeDomainSignal,t)
+                temp_NMR_Mix.plotFit();
                 
                 % Resort object by frequencies
                 obj = obj.sortByFreq();
@@ -251,14 +317,14 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
                     obj.fwhm = temp_NMR_Mix.fwhm;
                     obj.phase = temp_NMR_Mix.phase;
                 end
-                              
+                
                 % If user wants to keep component, add it to the object
                 output_str2 = lower(input('\tFit more peaks? [y/n]','s'));
                 continueFitting = length(findstr(output_str2, 'y')>0);
             end
         end
         
-        function obj = fitTimeDomainSignal(obj, timeDomainSignal, t)
+        function obj = fitTimeDomainSignal(obj)
             % Fits exponentially decaying components to the given time
             % domain signal
             
@@ -268,38 +334,34 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             
             % Fit time domain signal
             fitfunc = @(input_params,t)sum(obj.calcTimeDomainSignalFromMatrix(input_params,t),2);
-                
+            
             ub = []; % Lower bounds
             lb = []; % Upper bounds
             fitoptions = optimoptions('lsqcurvefit');
             %                         fitoptions.Display = 'iter-detailed';
-            fitoptions.MaxIter = 5000;
-            fitoptions.TolFun=1E-900;
-            fitoptions.TolX = 1E-900;
-            fitoptions.FinDiffType = 'central';
-            fitoptions.MaxFunEvals = 1000;
+%             fitoptions.MaxIter = 5000;
+%             fitoptions.TolFun=1E-900;
+%             fitoptions.TolX = 1E-900;
+%             fitoptions.FinDiffType = 'central';
+%             fitoptions.MaxFunEvals = 1000;
             [fit_params,resnorm,residual,exitflag,output,lambda,jacobian] = ...
-                lsqcurvefit(fitfunc,guess_compMat,t,timeDomainSignal,lb,ub,fitoptions);
+                lsqcurvefit(fitfunc,guess_compMat,obj.t,...
+                obj.timeDomainSignal,lb,ub,fitoptions);
             
             % Convert back to physical units and save to object
             [obj.amp, obj.freq, obj.fwhm, obj.phase] = ...
                 obj.convertMatrixToPhysical(fit_params);
         end
         
-        function plotFit(obj, timeDomainSignal,t)
-            % Calculate spectrum
-            dwell_time = t(2)-t(1);
-            f = NMR_Mix.calcFftFreq(t);
-            measuredSpectrum = dwell_time*fftshift(fft(timeDomainSignal));
-            
+        function plotFit(obj)
             % Calculate fitted and residual spectrums
-            fittedSpectrum = sum(obj.calcSpectralDomainSignal(f),2);
-            residualSpectrum = measuredSpectrum - fittedSpectrum;
+            fittedSpectrum = sum(obj.calcSpectralDomainSignal,2);
+            residualSpectrum = obj.spectralDomainSignal - fittedSpectrum;
             
             % Calculate lorentzian curves for each component
-            lorentzianCurves = obj.calcLorentzianCurves(f);
+            lorentzianCurves = obj.calcLorentzianCurves();
             nComponents = length(obj.amp);
-            fMat = repmat(f,[1 nComponents]);
+            fMat = repmat(obj.f,[1 nComponents]);
             
             legendStrings = cell(1, nComponents);
             for iComp=1:nComponents
@@ -308,30 +370,30 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             
             % Show results to user
             ax2 = subplot(4,1,2);
-            plot(f,abs(measuredSpectrum),'-b');
+            plot(obj.f,abs(obj.spectralDomainSignal),'-b');
             hold on;
-            plot(f,abs(fittedSpectrum),'-g');
-            plot(f,abs(residualSpectrum),'-r');
+            plot(obj.f,abs(fittedSpectrum),'-g');
+            plot(obj.f,abs(residualSpectrum),'-r');
             hold off;
             ylabel('Magnitude Intensity');
             set(ax2,'xticklabel',{[]}) ;
             set(ax2,'XDir','reverse');
             
             ax3 = subplot(4,1,3);
-            plot(f,real(measuredSpectrum),'-b');
+            plot(obj.f,real(obj.spectralDomainSignal),'-b');
             hold on;
-            plot(f,real(fittedSpectrum),'-g');
-            plot(f,real(residualSpectrum),'-r');
+            plot(obj.f,real(fittedSpectrum),'-g');
+            plot(obj.f,real(residualSpectrum),'-r');
             hold off;
             ylabel('Real Intensity');
             set(ax3,'xticklabel',{[]});
             set(ax3,'XDir','reverse');
             
             ax4 = subplot(4,1,4);
-            plot(f,imag(measuredSpectrum),'-b');
+            plot(obj.f,imag(obj.spectralDomainSignal),'-b');
             hold on;
-            plot(f,imag(fittedSpectrum),'-g');
-            plot(f,imag(residualSpectrum),'-r');
+            plot(obj.f,imag(fittedSpectrum),'-g');
+            plot(obj.f,imag(residualSpectrum),'-r');
             hold off;
             xlabel('Spectral Frequency (Hz)');
             ylabel('Imaginary Intensity');
@@ -349,7 +411,7 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             else
                 ax1 = subplot(4,1,1);
             end
-                        
+            
             hold off;
             plot(fMat,lorentzianCurves);
             legend(legendStrings);
@@ -421,18 +483,6 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             % Calculates relative frequencies (difference from referecne
             % frequency) from PPM values and reference frequency
             f = ppm*1E-6*fref;
-        end
-        function f = calcFftFreq(t)
-            nSamples = length(t);
-            dwell_time = t(2)-t(1);
-            f = linspace(-0.5,0.5,nSamples+1)/dwell_time;
-            f = f(1:(end-1))'; % Take off last sample to have nSamples
-        end
-        function t = calcIfftTime(f)
-            nSamples = length(f);
-            freq_gap = f(2)-f(1);
-            t = linspace(-0.5,0.5,nSamples+1)/freq_gap;
-            t = t(1:(end-1)); % Take off last sample to have nSamples
         end
     end
     
