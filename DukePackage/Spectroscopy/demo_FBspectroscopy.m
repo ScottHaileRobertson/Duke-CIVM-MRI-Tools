@@ -5,7 +5,7 @@ fwhm = [20 125 50];
 phase = [0 0 0];
 
 % Find pfile
-pfile_path = filepath('/home/scott/Public/data/20150311/subject_002_064/P03584.7')
+pfile_path = filepath('/home/scott/data/data/human/demo/')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -27,8 +27,8 @@ tr = 20/1000;%pfile.image.tr;
 nFrames = pfile.rdb.rdb_hdr_user20;
 t_tr = tr*((1:nFrames)-1);
 
-nToAvg = 100;
-skipSize = 50;
+nToAvg = 10;
+skipSize = 5;
 
 % Fit spectra
 nComp = length(amp);
@@ -43,8 +43,8 @@ for iTimePoint = 1:nTimePoints
 	startIdx = startingTimePoints(iTimePoint)
 	avg_data = mean(pfile.data(:,startIdx + (1:nToAvg) - 1),2);
 	
-	nmrMix = NMR_Mix(amp,freq,fwhm,phase,pfile.rdb.rdb_hdr_ps_mps_freq/10);
-	nmrMix = nmrMix.fitTimeDomainSignal(avg_data,t);
+	nmrMix = NMR_Mix(avg_data,t,amp,freq,fwhm,phase,[],[],pfile.rdb.rdb_hdr_ps_mps_freq/10);
+	nmrMix = nmrMix.fitTimeDomainSignal();
 	
 	amp_dyn(iTimePoint,:) = nmrMix.amp(:);
 	freq_dyn(iTimePoint,:) = nmrMix.freq(:);
