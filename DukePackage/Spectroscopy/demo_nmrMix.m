@@ -6,10 +6,10 @@ t = (dwell_time*((1:npts) - 1)); %sec
 % tau = 1./(pi*[5E-3 3E-3 1E-3])';    %(sec)T2*=2msec
 amp = [10 10 10]';    %arbs
 freq = [-4E3 30 400 ]';   %Hz
-phase = [0 -20 45]';     %deg
+phase = [0 -40 75]';     %deg
 % fwhm = 1./(pi*tau) %Hz
 fwhm = [100 200 300];
-nmrMix = NMR_Mix([],t,amp, freq, fwhm, phase);
+nmrMix = NMR_Mix([],t,amp, freq, fwhm, phase,[],[]);
 
 % Calculate signal and spectrum
 signal = sum(nmrMix.calcTimeDomainSignal(),2);

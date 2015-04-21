@@ -1,10 +1,10 @@
 %% Load Volumes
 disp('Load Ventilation volume');
-vent_path = filepath('C:\Users\Scott\Desktop\subject002_065\P34304_gas_recon.mat')
+vent_path = filepath('/home/scott/Public/data/')
 load(vent_path);
 
 disp('Load Proton volume');
-proton_path = filepath('C:\Users\Scott\Desktop\subject002_065\P32256_bhute_recon.mat')
+proton_path = filepath('/home/scott/Public/data/')
 load(proton_path);
 
 %% Register volumes
@@ -22,6 +22,7 @@ optimizer.InitialRadius = 0.004;
 optimizer.MaximumIterations=300;
 disp('Starting rough rigid registration');
 iRegistered = imregister(iMoving,Rmoving, iFixed,Rfixed, 'rigid', optimizer, metric);
+Rmoving = imref3d(size(iRegistered),1,1,1);
 
 % Perform a better affine transformation
 optimizer.Epsilon = 1E-40;

@@ -119,8 +119,10 @@ imslice(abs(reconVol));
 
 % save the result
 [pathstr,name,ext] = fileparts(pfile_path);
-niiname = [pathstr filesep() name '_bhute_recon.nii'];
-nii = make_nii(abs(reconVol));
-save_nii(nii,niiname,16);
 uteVol = reconVol;
 save([pathstr filesep() name '_bhute_recon.mat'],'uteVol');
+
+[pathstr,name,ext] = fileparts(pfile_path);
+niiname = [pathstr filesep() name '_bhute_recon.nii'];
+nii = make_nii(abs(reconVol));
+save_nii(nii,niiname);

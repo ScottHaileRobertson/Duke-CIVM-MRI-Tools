@@ -3,21 +3,26 @@
 % 1. Define reconstruction parameters
 output_image_size = 128*[1 1 1];
 overgrid_factor = 3;
-gasKernel.sharpness = 0.33;
+gasKernel.sharpness = 0.35;
 gasKernel.extent = 9*gasKernel.sharpness;
-dissolvedKernel.sharpness = 0.17;
+dissolvedKernel.sharpness = 0.15;
 dissolvedKernel.extent = 9*dissolvedKernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 10;
 
-pfile_path = filepath('C:\Users\Scott\Desktop\subject002_065\P34304.7')
+pfile_path = filepath('/home/scott/Public/data/');
+% pfile_path = filepath('/home/scott/Desktop/')
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
 pfileOverride.rdb.rdb_hdr_user1  = 0.512; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 pfileOverride.rdb.rdb_hdr_user44 = 1.536; % pw_gxw/1000
+% pfileOverride.rdb.rdb_hdr_user1  = 0.252; % pw_gxwa
+% pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
+% pfileOverride.rdb.rdb_hdr_user44 = 1.024; % pw_gxw/1000
+
 pfileOverride.rdb.rdb_hdr_user22 = 0.145; %toff
 pfileOverride.rdb.rdb_hdr_user23 = 101; % primeplus
 % pfileOverride.rdb.rdb_hdr_user23 = 137.508; % primeplus
@@ -136,3 +141,13 @@ imslice(abs(dissolvedVol),'Dissolved');
 [pathstr,name,ext] = fileparts(pfile_path);
 save([pathstr filesep() name '_gas_recon.mat'],'gasVol');
 save([pathstr filesep() name '_dissolved_recon.mat'],'dissolvedVol');
+
+[pathstr,name,ext] = fileparts(pfile_path);
+niiname = [pathstr filesep() name '_gas_recon.nii'];
+nii = make_nii(abs(gasVol));
+save_nii(nii,niiname);
+
+[pathstr,name,ext] = fileparts(pfile_path);
+niiname = [pathstr filesep() name '_dissolved_recon.nii'];
+nii = make_nii(abs(dissolvedVol));
+save_nii(nii,niiname);

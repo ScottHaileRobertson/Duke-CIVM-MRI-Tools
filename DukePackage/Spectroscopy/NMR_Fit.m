@@ -213,7 +213,7 @@ classdef NMR_Fit
               realImagSig = [real(complexSig) imag(complexSig)];
         end
         
-        function plotFit(obj)
+        function ax1 = plotFit(obj)
             % Calculate fitted and residual spectrums
             individualSpectrums = obj.nmrMix.calcComponentSpectralDomainSignal(obj.f);
             fittedSpectrum = obj.nmrMix.calcSpectralDomainSignal(obj.f);
@@ -309,10 +309,16 @@ classdef NMR_Fit
             %             end
         end
         
-        function describe(obj)
+        function describe(obj,varargin)
+            
+            if(nargin > 1)
+                multVal = 1/varargin{1};
+            else
+                multVal = 1;
+            end
             disp('Amp (arbs)  Freq (Hz)  Linewidth(Hz)  Phase(degrees)');
             for iComp = 1:length(obj.nmrMix.amp)
-                disp([sprintf('%8.3e',obj.nmrMix.amp(iComp)) ' ' ...
+                disp([sprintf('%8.3e',multVal*obj.nmrMix.amp(iComp)) ' ' ...
                     sprintf('%+8.2f',obj.nmrMix.freq(iComp))  '  ' ...
                     sprintf('%8.2f',obj.nmrMix.fwhm(iComp)) '  ' ...
                     sprintf('%+9.2f',obj.nmrMix.phase(iComp))]);

@@ -8,15 +8,16 @@ dis_fit_guess = [
     1           -3870           50          0; % Component #4
     ];
 
-amp_lb = zeros(1,size(dis_fit_guess,1));
-freq_lb = [-100 -350 -500 -3849 -3950]
-fwhm_lb = [120 120 50 5 5];
-phase_lb = zeros(1,size(dis_fit_guess,1));
+% amp_lb = zeros(1,size(dis_fit_guess,1));
+amp_lb = [0.05 0.05 0.2 0 0];
+freq_lb = [-80 -340 -430 -3890 -4290]
+fwhm_lb = [130 130 100 0 0];
+phase_lb = -inf*ones(1,size(dis_fit_guess,1));
 
 amp_ub = inf*ones(1,size(dis_fit_guess,1));
-freq_ub = [60 -101 -351 -3000 -3850];
-fwhm_ub = [250 250 170 100 100];
-phase_ub = 360*ones(1,size(dis_fit_guess,1));
+freq_ub = [10 -220 -350 -3000 -3820];
+fwhm_ub = [270 270 180 35 35];
+phase_ub = inf*ones(1,size(dis_fit_guess,1));
 
 gas_fit_guess = [   1           8           15          0]; % Component #
 
@@ -31,7 +32,7 @@ zeropadsize = 2048;
 linebroadening = 0; %Hz
 skipDownstreamFrames = 25;
 throwAwayCalFrames = 0;
-minte = 0E-6;
+minte = 300E-6;
 TEs = [875 975 1075 1175]*1E-6;
 nDisFrames = 200;
 nGasFrames = 1;
@@ -40,7 +41,7 @@ nComp = size(dis_fit_guess,1);
 delta_rec_freq = 0;% pfile.image.user12; % freq_off in Hz
 
 % Get Pfile
-pfile_path = filepath('C:\Users\Scott\Downloads\P11776 (2).7')
+pfile_path = filepath('/home/scott/Public/data/')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -116,7 +117,7 @@ if(nComp > 3)
 end
 for iTE = 1:nTE
     %
-    teData = dis_pfile.data(1:end,(skipDownstreamFrames*nTE+iTE):nTE:end);
+    teData = dis_pfile.data(:,(skipDownstreamFrames*nTE+iTE):nTE:end);
     
     % Undo TE Phase from off center excitation
     delta_phase = delta_rec_freq*(TEs(iTE)-TEs(1));
@@ -127,8 +128,8 @@ for iTE = 1:nTE
     % Calculate fit
     nmrFit = NMR_Fit(teData, t, zeropadsize,linebroadening, dis_fit_guess(:,1),dis_fit_guess(:,2),...
         dis_fit_guess(:,3),dis_fit_guess(:,4));
-    nmrFit = nmrFit.setBounds( amp_lb, amp_ub, freq_lb, freq_ub,...
-        fwhm_lb, fwhm_ub, phase_lb, phase_ub);
+%     nmrFit = nmrFit.setBounds( amp_lb, amp_ub, freq_lb, freq_ub,...
+%         fwhm_lb, fwhm_ub, phase_lb, phase_ub);
     nmrFit = nmrFit.fitTimeDomainSignal();
     
     % save fits
@@ -160,11 +161,12 @@ for iTE = 1:nTE
     
     % Show fit
     figure();
-    nmrFit.plotFit();
-    title(['TE' num2str(iTE)]);
+    ax = nmrFit.plotFit();
+    title(ax,['TE' num2str(iTE)]);
+    
     
     % Describe fit
-    nmrFit.describe();
+    nmrFit.describe(gasFit.nmrMix.amp(1));
 end
 
 
@@ -190,9 +192,9 @@ ylabel('Ratio with gas');
 legend('rbc:gas','barrier 1:gas','barrier 2:gas', 'gas 1:gas', 'gas 2:gas');
 
 ax4 = subplot(4,1,4);
-plot(TEs, te90);
+plot(TEs, te90*1E6);
 xlabel('TE');
-ylabel('TE90');
+ylabel('TE90 (usec)');
 
 %% Display TE90 etc
 deltaF

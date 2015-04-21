@@ -3,13 +3,14 @@
 % 1. Define reconstruction parameters
 output_image_size = 128*[1 1 1];
 overgrid_factor = 3;
-kernel.sharpness = 0.365;
+kernel.sharpness = 0.39;
 kernel.extent = 9*kernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 10;
 
-pfile_path = filepath()
+pfile_path = filepath('/home/scott/Desktop/rohan_20150617/P43520.7')
+% pfile_path = filepath('/home/scott/Desktop/')
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
@@ -17,14 +18,14 @@ pfileOverride = GE.Pfile.Pfile();
 pfileOverride.rdb.rdb_hdr_user1  = 0.992; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 pfileOverride.rdb.rdb_hdr_user44 = 2.976; % pw_gxw/1000
-pfileOverride.rdb.rdb_hdr_user22 = 0.006; %toff
-pfileOverride.rdb.rdb_hdr_user23 = 101; % primeplus
-% pfileOverride.rdb.rdb_hdr_user23 = 137.508; % primeplus
+pfileOverride.rdb.rdb_hdr_user22 = 0.05; %toff
+% pfileOverride.rdb.rdb_hdr_user23 = 101; % primeplus
+pfileOverride.rdb.rdb_hdr_user23 = 137.508; % primeplus
 pfileOverride.rdb.rdb_hdr_user32 = 1;
 
 % Gradient delays
 delays.x_delay = 0.000;
-delays.y_delay = 0.00;
+delays.y_delay = 0.000;
 delays.z_delay = 0.000;
 
 %Optional parameters
@@ -83,25 +84,17 @@ MRI.DataProcessing.calculateNyquistMatrixSize(radialDistance, pfile);
 %% Reconstruct data
 % Choose kernel
 kernelObj = Recon.SysModel.Kernel.Gaussian(kernel.sharpness, kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.Triangle(kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.KaiserBessel(kernel.sharpness, kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.Sinc(kernel.sharpness, kernel.extent, verbose);
 
 % Choose Proximity object
 proxObj = Recon.SysModel.Proximity.L2Proximity(kernelObj, verbose);
-% proxObj = Recon.SysModel.Proximity.L1Proximity(kernelObj, verbose);
 clear kernelObj;
 
 % Create System model
 systemObj = Recon.SysModel.MatrixSystemModel(traj, overgrid_factor, ...
     output_image_size, proxObj, verbose);
-% systemObj = Recon.SysModel.ExactSystemModel(traj, overgrid_factor, output_image_size, verbose);
 
 % Choose density compensation function (DCF)
-% dcfObj = Recon.DCF.Analytical3dRadial(traj, verbose);
 dcfObj = Recon.DCF.Iterative(systemObj, nPipeIter, verbose);
-% dcfObj = Recon.DCF.Voronoi(traj, pfile, verbose);
-% dcfObj = Recon.DCF.Unity(traj, verbose);
 
 % Choose Reconstruction Model
 reconObj = Recon.ReconModel.LSQGridded(systemObj, dcfObj, verbose);

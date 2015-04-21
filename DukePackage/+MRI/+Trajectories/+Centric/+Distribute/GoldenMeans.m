@@ -8,8 +8,10 @@ pi_float = single(pi);
 i = single(0:nFrames-1);
 
 % Can be calculated with golden_means = single(calc_golden_means(2));
-phi1 = single(0.465571224689483642578125);
-phi2 = single(0.682327806949615478515625);
+phi1 = single(0.4656);
+phi2 = single(0.6823);
+% phi1 = single(0.465571224689483642578125);
+% phi2 = single(0.682327806949615478515625);
 
 tempa= single(mod(i.*phi2,1));
 tempb= single(mod(i.*phi1,1));

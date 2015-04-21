@@ -12,7 +12,7 @@ proton_path = filepath('C:\Users\Scott\Desktop\subject002_065\P32256_bhute_recon
 load(proton_path);
 
 %% Find spectroscopic ratio
-spec_ratio = 
+spec_ratio = 0.54
 
 %% Create segmentation mask
 nClusters = 3;

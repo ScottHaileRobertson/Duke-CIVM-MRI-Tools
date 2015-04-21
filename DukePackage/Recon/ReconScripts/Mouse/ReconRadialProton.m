@@ -1,25 +1,26 @@
 
 % Required parameters
 % 1. Define reconstruction parameters
-output_image_size = 64*[1 1 1];
-overgrid_factor = 9;
-kernel.sharpness = 0.2;
+output_image_size = 256*[1 1 1];
+overgrid_factor = 3;
+kernel.sharpness = 0.25;
 kernel.extent = 9*kernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 10;
 
-pfile_path = filepath()
+pfile_path = filepath('/home/scott/Desktop/rohan_20150617/')
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
 
-% pfileOverride.rdb.rdb_hdr_user1  = 0.992; % pw_gxwa
+pfileOverride.rdb.rdb_hdr_user1  = 0.512; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 % pfileOverride.rdb.rdb_hdr_user44 = 3.968; % pw_gxw/1000
-pfileOverride.rdb.rdb_hdr_user22 = 0.35; %toff
-pfileOverride.rdb.rdb_hdr_user23 = 101; % primeplus
-% pfileOverride.rdb.rdb_hdr_user23 = 137.508; % primeplus
+pfileOverride.rdb.rdb_hdr_user44 = 2.048; % pw_gxw/1000 ROHAN 061515
+pfileOverride.rdb.rdb_hdr_user22 = 0.09; %psd_toff2 ROHAN 061515
+% pfileOverride.rdb.rdb_hdr_user23 = 101; % primeplus
+pfileOverride.rdb.rdb_hdr_user23 = 137.508; % primeplus
 pfileOverride.rdb.rdb_hdr_user32 = 1; 
 
 % Gradient delays
@@ -74,10 +75,10 @@ traj = MRI.Trajectories.Centric.Distribute.calculate3dTrajectories(radialDistanc
 % Calculate Maximum volume size for Nyquist
 MRI.DataProcessing.calculateNyquistMatrixSize(radialDistance, pfile);
 
-% Throw away data
-pfile.rdb.rdb_hdr_user20 = 90;
-pfile.data = pfile.data(:,1:pfile.rdb.rdb_hdr_user20);
-traj = traj(:,1:pfile.rdb.rdb_hdr_user20,:);
+% % Throw away data
+% pfile.rdb.rdb_hdr_user20 = 90;
+% pfile.data = pfile.data(:,1:pfile.rdb.rdb_hdr_user20);
+% traj = traj(:,1:pfile.rdb.rdb_hdr_user20,:);
 
 
 % Vectorize data and traj for recon
