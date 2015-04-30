@@ -1,6 +1,8 @@
 % Guesses
 amp = [1 1 1 1];
-freq = [-3860 -3840 387 -35];
+freq = [-3860 -3840 -387 -35];
+freq_ub = [-3850 -2050 -200 100];
+freq_lb = [-inf -3850 -500 -150];
 fwhm = [50 35 125 200];
 phase = [0 0 0 0];
 zeroPad = 512;
@@ -43,11 +45,11 @@ phase_dyn = zeros(nTimePoints,nComp);
 t_dyn = zeros(nTimePoints,nComp);
 saveMix = [];
 fits = cell(nTimePoints,1);
-parfor iTimePoint = 1:nTimePoints
+for iTimePoint = 1:nTimePoints
     startIdx = startingTimePoints(iTimePoint)
     avg_data = mean(pfile.data(:,startIdx + (1:nToAvg) - 1),2);
     
-    nmrMix = NMR_Mix(avg_data,t,amp,freq,fwhm,phase,zeroPad,lineBroad,pfile.rdb.rdb_hdr_ps_mps_freq/10);
+    nmrMix = NMR_Mix(avg_data,t,amp,freq,fwhm,phase,zeroPad,lineBroad,pfile.rdb.rdb_hdr_ps_mps_freq/10,[],[],freq_ub,freq_lb,[],[],[],[]);
     nmrMix = nmrMix.fitTimeDomainSignal();
     nmrMix = nmrMix.sortByFreq();
     
@@ -76,22 +78,22 @@ ax1415lim = [0 max_t 0 35];
 ax1920lim = [0 max_t 0 0.9]; %-0.0116
 
 patid = '002-065';
-spec_movieName = ['FB_spectro_SUBJ' patid 'spec.mp4'];
+spec_movieName = ['FB_spectro_SUBJ' patid 'spec'];
 spec_vidObj = VideoWriter(spec_movieName);
 spec_vidObj.FrameRate = 30;
 open(spec_vidObj);
 
-gasSpec_movieName = ['FB_spectro_SUBJ' patid 'specGas.mp4'];
+gasSpec_movieName = ['FB_spectro_SUBJ' patid 'specGas'];
 gasSpec_vidObj = VideoWriter(gasSpec_movieName);
 gasSpec_vidObj.FrameRate = 30;
 open(gasSpec_vidObj);
 
-disSpec_movieName = ['FB_spectro_SUBJ' patid 'specDis.mp4'];
+disSpec_movieName = ['FB_spectro_SUBJ' patid 'specDis'];
 disSpec_vidObj = VideoWriter(disSpec_movieName);
 disSpec_vidObj.FrameRate = 30;
 open(disSpec_vidObj);
 
-time_movieName = ['FB_spectro_SUBJ' patid 'time.mp4'];
+time_movieName = ['FB_spectro_SUBJ' patid 'time'];
 time_vidObj = VideoWriter(time_movieName);
 time_vidObj.FrameRate = 30;
 open(time_vidObj);
