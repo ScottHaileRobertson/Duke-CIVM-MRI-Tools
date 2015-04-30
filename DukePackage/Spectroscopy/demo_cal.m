@@ -11,15 +11,19 @@ MRI.DataProcessing.checkForOverranging(pfile);
 pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 
 %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-fit_guess = [   1           -20            215          0; % Component #1
+dis_fit_guess = [   1           -20            215          0; % Component #1
                 1           -300           200          0; % Component #2
                 1           -380           125          0; % Component #3
                 1           -3821           50          0; % Component #4
                 1           -3845           50          0; % Component #5
 ];
-% fit_guess = [];
+% dis_fit_guess = [];
 
-zeropadsize = 512;
+%            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+gas_fit_guess = [   1           8           15          0
+    1           10           -55          0]; % Component #
+
+zeropadsize = 2048;
 linebroadening = 0; %Hz
 % nComp = 5;
 % rbc_comp_num = 1;
@@ -64,12 +68,12 @@ for iTE = 1:nTE
     broaddata = avgdata;
     t = (dwell_time*((1:npts) - 1)); %sec
     
-    if(isempty(fit_guess))
+    if(isempty(dis_fit_guess))
         nmrMix = NMR_Mix(broaddata, t,[],[],[],[],zeropadsize, linebroadening, center_freq);
         nmrMix = nmrMix.autoAddComponents(nComp);
     else
-        nmrMix = NMR_Mix(broaddata, t, fit_guess(:,1),fit_guess(:,2),...
-            fit_guess(:,3),fit_guess(:,4),zeropadsize,linebroadening,center_freq);
+        nmrMix = NMR_Mix(broaddata, t, dis_fit_guess(:,1),dis_fit_guess(:,2),...
+            dis_fit_guess(:,3),dis_fit_guess(:,4),zeropadsize,linebroadening,center_freq);
         nmrMix = nmrMix.fitTimeDomainSignal();
     end
     
@@ -112,9 +116,6 @@ stdev_te90 = std(te90);
 
 % Calculate ratios
 colors = get(groot,'defaultAxesColorOrder');
-% area_rbc = nmrMixes{iTE}.amp(1).*nmrMixes{iTE}.fwhm;
-% area_barrier = nmrMixes{iTE}.amp.*nmrMixes{iTE}.fwhm;
-% area_gas = nmrMixes{iTE}.amp.*nmrMixes{iTE}.fwhm;
 for iTE = 1:nTE
     area_rbc(iTE) = nmrMixes{iTE}.amp(1).*nmrMixes{iTE}.fwhm(1);
     area_barrier(iTE) = nmrMixes{iTE}.amp(2).*nmrMixes{iTE}.fwhm(2);
@@ -166,11 +167,8 @@ gas_pfile.data = pfile.data(:,nDisFrames + (1:nGasFrames));
 gas_pfile.rdb.rdb_hdr_user20 = nGasFrames; % nframes
 bw = pfile.rdb.rdb_hdr_user12;
 npts = pfile.rdb.rdb_hdr_frame_size;
-% %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-fit_guess = [   1           8           15          0
-    1           10           -55          0]; % Component #
-gasMix = NMR_Mix(gas_pfile.data,t,fit_guess(:,1),fit_guess(:,2),...
-    fit_guess(:,3),fit_guess(:,4),zeropadsize,linebroadening,center_freq);
+gasMix = NMR_Mix(gas_pfile.data,t,gas_fit_guess(:,1),gas_fit_guess(:,2),...
+    gas_fit_guess(:,3),gas_fit_guess(:,4),zeropadsize,linebroadening,center_freq);
 gasMix = gasMix.fitTimeDomainSignal();
 % gasMix = NMR_Mix(gas_pfile.data,t,[],[],[],[],zeropadsize,linebroadening,center_freq);
 % gasMix = gasMix.fitTool();
