@@ -337,7 +337,7 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             
             ub = []; % Lower bounds
             lb = []; % Upper bounds
-            fitoptions = optimoptions('lsqcurvefit');
+            fitoptions = optimoptions('lsqcurvefit','Display','off');
             %                         fitoptions.Display = 'iter-detailed';
 %             fitoptions.MaxIter = 5000;
 %             fitoptions.TolFun=1E-900;

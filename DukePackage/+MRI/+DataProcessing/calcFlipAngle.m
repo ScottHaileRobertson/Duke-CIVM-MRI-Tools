@@ -6,7 +6,8 @@ guess(2)=10*pi/180;       % just guess 10 degrees
 xdata=1:size(pfile.data,2);
 ydata = abs(pfile.data(dc_sample_idx,:));
 
-[fitparams,resnorm,residual,exitflag,output,lambda,jacobian]  = lsqcurvefit(fitfunct,guess,xdata,ydata);
+fitoptions = optimoptions('lsqcurvefit','Display','off');
+[fitparams,resnorm,residual,exitflag,output,lambda,jacobian]  = lsqcurvefit(fitfunct,guess,xdata,ydata,[],[],fitoptions);
 ci = nlparci(fitparams,residual,jacobian);  % returns 95% conf intervals on fitparams by default
 param_err=fitparams-ci(:,1)';
 
