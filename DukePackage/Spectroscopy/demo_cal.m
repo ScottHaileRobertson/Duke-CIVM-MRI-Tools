@@ -11,11 +11,11 @@ MRI.DataProcessing.checkForOverranging(pfile);
 pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 
 %            Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-dis_fit_guess = [   1           -20            215          0; % Component #1
-                1           -300           200          0; % Component #2
-                1           -380           125          0; % Component #3
-                1           -3821           50          0; % Component #4
-                1           -3845           50          0; % Component #5
+dis_fit_guess = [   1           -20            215          100; % Component #1
+%                 1           -300           200          40; % Component #2
+                1           -380           125          -60; % Component #3
+%                 1           -3821           50          100; % Component #4
+                1           -3845           50          -480; % Component #5
 ];
 % dis_fit_guess = [];
 
@@ -25,12 +25,12 @@ gas_fit_guess = [   1           8           15          0
 
 zeropadsize = 2048;
 linebroadening = 0; %Hz
+nComp = 3;
+rbc_comp_num = 1;
+barrier_comp_num = 2;
 % nComp = 5;
 % rbc_comp_num = 1;
 % barrier_comp_num = 3;
-nComp = 5;
-rbc_comp_num = 1;
-barrier_comp_num = 3;
 
 % Split disolved data into separate pfile
 nDisFrames = 200;
@@ -42,7 +42,7 @@ center_freq = pfile.rdb.rdb_hdr_ps_mps_freq/10;
 
 % Split dissolved data into 4 pfiles (one for each TE)
 nTE = 4;
-minte = 738;
+minte = 0;
 TEs = [875 975 1075 1175];
 disTE_pfile = cell(1,nTE);
 b = zeros(4,2048);
@@ -84,7 +84,7 @@ for iTE = 1:nTE
     nmrMixes{iTE} = nmrMix;
     
     % Calculate TE 90
-    time180 = 180E6/(360*(nmrMix.freq(rbc_comp_num)-nmrMix.freq(barrier_comp_num)));
+    time180 = 180E6/(360*(nmrMix.freq(rbc_comp_num)-nmrMix.freq(barrier_comp_num)))
     startingPhaseDiff = nmrMix.phase(rbc_comp_num)-nmrMix.phase(barrier_comp_num);
     teDiffFunc = @(t)startingPhaseDiff+360*t*(nmrMix.freq(1)-nmrMix.freq(barrier_comp_num))-90;
     fitoptions = optimoptions('fsolve','Display','off');
@@ -189,6 +189,10 @@ dc_sample_idx = 5;
 % Calculate flip angle
 MRI.DataProcessing.calcFlipAngle(flipCal_pfile, dc_sample_idx);
 
+disp(['TE90_1=' num2str(te90(1)) 'usec']);
+    disp(['TE90_2=' num2str(te90(2)) 'usec']);
+    disp(['TE90_3=' num2str(te90(3)) 'usec']);
+        disp(['TE90_4=' num2str(te90(4)) 'usec']);
 disp(['TE90=' num2str(mean_te90) 'usec (' num2str(stdev_te90) 'usec stdev)']);
 
 if(barrier_comp_num > 2)
