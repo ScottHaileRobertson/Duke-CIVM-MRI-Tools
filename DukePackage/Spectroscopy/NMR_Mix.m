@@ -73,7 +73,9 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             end
             
             % Apply linebroadening
-            obj.timeDomainSignal = obj.timeDomainSignal.*exp(-obj.linebroadening*obj.t);
+            if(~isempty(obj.timeDomainSignal))
+                obj.timeDomainSignal = obj.timeDomainSignal.*exp(-obj.linebroadening*obj.t);
+            end
         end
         
         function obj = addComponent(obj,amplitude, frequency, fwhm, phase)
@@ -223,11 +225,16 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
 %             specMat = repmat(currentSpectrum,[1 nPhases]);
 %             specMat = specMat.*phaseMat;
             
-            % Use curve fitting to fit residual signal
+            % Use time domain curve fitting to fit residual signal
             residualTimeDomainSignal = obj.timeDomainSignal - sum(obj.calcTimeDomainSignal(obj.t),2);
             largestPeakComponent = NMR_Mix(residualTimeDomainSignal,obj.t,...
-                1,peakFreq,10,peakPhase,obj.zeroPadSize,obj.linebroadening,obj.fref); %Guess amplitude and FWHM for now
+                1,peakFreq,50,peakPhase,obj.zeroPadSize,obj.linebroadening,obj.fref); %Guess amplitude and FWHM for now
             largestPeakComponent = largestPeakComponent.fitTimeDomainSignal();
+            
+%             % Use freq domain curve fitting to fit residual signal
+%             largestPeakComponent = NMR_Mix(ifft(fftshift(currentSpectrum)),obj.t,...
+%                 1,peakFreq,50,peakPhase,obj.zeroPadSize,obj.linebroadening,obj.fref); %Guess amplitude and FWHM for now
+%             largestPeakComponent = largestPeakComponent.fitSpectralDomainSignal();
             
             % Return fit parameters
             amp   = largestPeakComponent.amp;
@@ -263,8 +270,7 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             % n (defined by nComponents) new exponentially decaying signals
             % to the NMR_mix object
             
-            nIter = nComponents - length(obj.amp);
-            for iComp = 1:nIter
+            for iComp = 1:nComponents
                 obj = obj.autoAddComponent();
             end
             
@@ -302,11 +308,12 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
                 % Show fit
                 temp_NMR_Mix.plotFit();
                 
+                % Report new fits
+                temp_NMR_Mix
+                
                 % Resort object by frequencies
                 obj = obj.sortByFreq();
                 
-                % Report new fits
-                obj
                 
                 % If user wants to keep component, add it to the object
                 output_str1 = lower(input('Keep fit? [y/n]','s'));
@@ -353,9 +360,40 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
                 obj.convertMatrixToPhysical(fit_params);
         end
         
+            function obj = fitSpectralDomainSignal(obj)
+            % Fits exponentially decaying components to the given spectral
+            % domain signal
+            
+            % Convert to the matrix form
+            guess_compMat = obj.convertPhysicalToMatrix(obj.amp, ...
+                obj.freq, obj.fwhm, obj.phase);
+            
+            % Fit spectral domain signal
+            fitfunc = @(input_params,f)sum(obj.calcSpectralDomainSignalFromMatrix(input_params,f),2);
+            
+            ub = []; % Lower bounds
+            lb = []; % Upper bounds
+            fitoptions = optimoptions('lsqcurvefit');
+            %                         fitoptions.Display = 'iter-detailed';
+%             fitoptions.MaxIter = 5000;
+%             fitoptions.TolFun=1E-900;
+%             fitoptions.TolX = 1E-900;
+%             fitoptions.FinDiffType = 'central';
+%             fitoptions.MaxFunEvals = 1000;
+            fitoptions.Algorithm = 'levenberg-marquardt';
+            [fit_params,resnorm,residual,exitflag,output,lambda,jacobian] = ...
+                lsqcurvefit(fitfunc,guess_compMat,obj.f,...
+                obj.spectralDomainSignal,lb,ub,fitoptions);
+            
+            % Convert back to physical units and save to object
+            [obj.amp, obj.freq, obj.fwhm, obj.phase] = ...
+                obj.convertMatrixToPhysical(fit_params);
+        end
+        
         function plotFit(obj)
             % Calculate fitted and residual spectrums
-            fittedSpectrum = sum(obj.calcSpectralDomainSignal,2);
+            individualSpectrums = obj.calcSpectralDomainSignal; 
+            fittedSpectrum = sum(individualSpectrums,2);
             residualSpectrum = obj.spectralDomainSignal - fittedSpectrum;
             
             % Calculate lorentzian curves for each component
@@ -369,7 +407,7 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             end
             
             % Show results to user
-            ax2 = subplot(4,1,2);
+            ax2 = subplot(5,1,2);
             plot(obj.f,abs(obj.spectralDomainSignal),'-b');
             hold on;
             plot(obj.f,abs(fittedSpectrum),'-g');
@@ -379,17 +417,31 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             set(ax2,'xticklabel',{[]}) ;
             set(ax2,'XDir','reverse');
             
-            ax3 = subplot(4,1,3);
+            ax3 = subplot(5,1,3);     
+            phaseSig = unwrap(angle(obj.spectralDomainSignal));
+            phaseFit = unwrap(angle(fittedSpectrum));
+            phaseDelta = phaseSig - phaseFit;
+            plot(obj.f, phaseSig,'-b');
+            hold on;
+            plot(obj.f,phaseFit,'-g');
+            plot(obj.f,phaseDelta,'-r');
+            
+            hold off;
+            ylabel('Phase (Radians)');
+            set(ax3,'xticklabel',{[]}) ;
+            set(ax3,'XDir','reverse');
+            
+            ax4 = subplot(5,1,4);
             plot(obj.f,real(obj.spectralDomainSignal),'-b');
             hold on;
             plot(obj.f,real(fittedSpectrum),'-g');
             plot(obj.f,real(residualSpectrum),'-r');
             hold off;
             ylabel('Real Intensity');
-            set(ax3,'xticklabel',{[]});
-            set(ax3,'XDir','reverse');
+            set(ax4,'xticklabel',{[]});
+            set(ax4,'XDir','reverse');
             
-            ax4 = subplot(4,1,4);
+            ax5 = subplot(5,1,5);
             plot(obj.f,imag(obj.spectralDomainSignal),'-b');
             hold on;
             plot(obj.f,imag(fittedSpectrum),'-g');
@@ -398,22 +450,21 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             xlabel('Spectral Frequency (Hz)');
             ylabel('Imaginary Intensity');
             legend('Measured','Fitted','Residual');
-            set(ax4,'XDir','reverse');
+            set(ax5,'XDir','reverse');
             
             if(~isempty(obj.fref))
                 % Add PPM axis
-                ax1ppm = subplot(4,1,1);
+                ax1ppm = subplot(5,1,1);
                 set(ax1ppm,'units','normalized',...
                     'XAxisLocation','top','YAxisLocation','right',...
                     'YTick',[],'YTickLabel',[],'Color','none');
                 
-                ax1 = axes();
+                ax1 = axes('Position',get(ax1ppm,'Position'));
             else
-                ax1 = subplot(4,1,1);
+                ax1 = subplot(5,1,1);
             end
-            
-            hold off;
-            plot(fMat,lorentzianCurves);
+           
+            plot(fMat,real(individualSpectrums));
             legend(legendStrings);
             ylabel('Component Intensity');
             set(ax1,'xticklabel',{[]}) ;
@@ -421,30 +472,11 @@ classdef NMR_Mix < matlab.mixin.CustomDisplay
             if(~isempty(obj.fref))
                 set(ax1ppm,'XDir','reverse');
             end
-            
-            % Clean up gaps between plots
-            if(~isempty(obj.fref))
-                ax1Pos = get(ax1ppm,'Position');
-            else
-                ax1Pos = get(ax1,'Position');
-            end
-            ax2Pos = get(ax2,'Position');
-            ax3Pos = get(ax3,'Position');
-            ax4Pos = get(ax4,'Position');
-            
-            % Better position each axes object
-            set(ax1,'Position',[ax1Pos(1) ax1Pos(2) ax1Pos(3) 0.2]);
-            set(ax2,'Position',[ax2Pos(1) ax2Pos(2) ax2Pos(3) 0.2]);
-            set(ax3,'Position',[ax3Pos(1) ax3Pos(2) ax3Pos(3) 0.2]);
-            set(ax4,'Position',[ax4Pos(1) ax4Pos(2) ax4Pos(3) 0.2]);
-            
+
             % Keep all x axes in sinc
-            linkaxes([ax1,ax2,ax3,ax4],'x');
+            linkaxes([ax1,ax2,ax3,ax4 ax5],'x');
             
             if(~isempty(obj.fref))
-                % Set size of ppm axis
-                set(ax1ppm,'Position',[ax1Pos(1) ax1Pos(2) ax1Pos(3) 0.2]);
-                
                 % Initialize XLim in correct units
                 set(ax1ppm,'xlim',NMR_Mix.relFreqToPpm(get(ax2,'XLim'),obj.fref));
                 

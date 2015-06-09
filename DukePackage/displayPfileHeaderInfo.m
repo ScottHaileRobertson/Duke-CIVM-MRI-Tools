@@ -31,7 +31,7 @@ end
 fprintf('Displaying header info for %s...\n',pfile.rdb.base_p_file);
 fprintf('\tName = %s\n',pfile.exam.patid');
 fprintf('\tWeight = %0.0f lbs (%0.0f kg)\n',round(pfile.exam.patweight/453.592),round(pfile.exam.patweight/1000));
-
+fprintf('\tSeries = %s\n',pfile.series.se_desc');
 fprintf('\tTE=%f usec\n',pfile.image.te);
 fprintf('\tTR=%f usec\n',pfile.image.tr);
 fprintf('\topflip=%0.1f degrees\n',pfile.rdb.rdb_hdr_user0);
