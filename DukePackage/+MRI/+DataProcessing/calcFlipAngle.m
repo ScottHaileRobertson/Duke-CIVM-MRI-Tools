@@ -1,4 +1,4 @@
-function calcFlipAngle(pfile, dc_sample_idx)
+function [flip_angle, flip_err] = calcFlipAngle(pfile, dc_sample_idx)
 fitfunct = @(coefs,xdata)coefs(1)*cos(coefs(2)).^(xdata-1);   % cos theta decay
 guess(1)=max(abs(pfile.data(dc_sample_idx,:)));
 guess(2)=10*pi/180;       % just guess 10 degrees
@@ -14,8 +14,6 @@ param_err=fitparams-ci(:,1)';
 % focus on flip angle
 flip_angle=fitparams(2)*180/pi;
 flip_err=param_err(2)*180/pi;
-
-disp(['Flip angle ~' num2str(flip_angle) ' (' num2str(flip_err) ' error)']);
 
 figure();
 plot(xdata,ydata,'-b');
