@@ -1,10 +1,10 @@
 %% Load Volumes
 disp('Load Ventilation volume');
-vent_path = filepath('/home/scott/Public/data/')
+vent_path = filepath('/home/scott/Desktop/Subj55/')
 load(vent_path);
 
 disp('Load Proton volume');
-proton_path = filepath('/home/scott/Public/data/')
+proton_path = filepath('/home/scott/Desktop/Subj55/')
 load(proton_path);
 
 %% Register volumes

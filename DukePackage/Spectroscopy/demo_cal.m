@@ -1,47 +1,79 @@
+% %%3peaks
+% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+% dis_fit_guess = [
+%     1           -55            140          0; % Component #1
+%     1           -348           130          0; % Component #3
+%     1           -3837           35          0; % Component #4
+%     ];
+% 
+% rbc_idx = 1;
+% barrier_idx = 2;
+% rbc_te90_idx = 1;
+% barrier_te90_idx = 2;
+% gas_idx = 3;
 
+%%4peaks
 %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
 dis_fit_guess = [
-    1           -35            215          0; % Component #1
-    1           -285           200          0; % Component #2
-    1           -393           115          0; % Component #3
-    1           -3840           50          0; % Component #4
-    1           -3870           50          0; % Component #4
+    1           -45            230          0; % Component #1
+    1           -290           275          0; % Component #2
+    1           -381           180          0; % Component #3
+    1           -3850           70          0; % Component #4
     ];
 
-% amp_lb = zeros(1,size(dis_fit_guess,1));
-amp_lb = [0.05 0.05 0.2 0 0];
-freq_lb = [-80 -340 -430 -3890 -4290]
-fwhm_lb = [130 130 100 0 0];
-phase_lb = -inf*ones(1,size(dis_fit_guess,1));
-
-amp_ub = inf*ones(1,size(dis_fit_guess,1));
-freq_ub = [10 -220 -350 -3000 -3820];
-fwhm_ub = [270 270 180 35 35];
-phase_ub = inf*ones(1,size(dis_fit_guess,1));
-
-gas_fit_guess = [   1           8           15          0]; % Component #
-
-% Miscelaneous parameters
 rbc_idx = 1;
 barrier_idx = 2:3;
 rbc_te90_idx = 1;
 barrier_te90_idx = 3;
-gas_idx = [4:5];
+gas_idx = 4;
+
+% %%5 peaks
+% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+% dis_fit_guess = [
+%     1           -30            215          0; % Component #1
+%     1           -290           200          0; % Component #2
+%     1           -393           115          0; % Component #3
+%     1           -3848           30          0; % Component #4
+%     1           -3880           60          0; % Component #4
+%     ];
+% 
+% rbc_idx = 1;
+% barrier_idx = 2:3;
+% rbc_te90_idx = 1;
+% barrier_te90_idx = 3;
+% gas_idx = 4:5;
+
+gas_fit_guess = [   1           8           15          0]; % Component #
+
+% TE Limits
+maxTEghetto = 1500E-6;
+minTEghetto = 500E-6;
+minte = 00E-6;
+
+% Miscelaneous parameters
 endToff = 1;
-zeropadsize = 2048;
+zeropadsize = 512;
 linebroadening = 0; %Hz
 skipDownstreamFrames = 25;
 throwAwayCalFrames = 0;
-minte = 300E-6;
 TEs = [875 975 1075 1175]*1E-6;
 nDisFrames = 200;
 nGasFrames = 1;
 nTE = length(TEs);
 nComp = size(dis_fit_guess,1);
-delta_rec_freq = 0;% pfile.image.user12; % freq_off in Hz
+
+colors = [     0.8500    0.3250    0.0980
+    0.9290    0.6940    0.1250
+    0.4660    0.6740    0.1880
+    0    0.4470    0.7410
+    0.3010    0.7450    0.9330
+    0.4940    0.1840    0.5560
+    0.6350    0.0780    0.1840];
+linestyles = {'-','--','-.',':'};
 
 % Get Pfile
-pfile_path = filepath('/home/scott/Public/data/')
+% pfile_path = filepath('/home/scott/Desktop/')
+pfile_path = filepath('/home/scott/Desktop/Subj46B/P14848_phaseCal.7')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -54,7 +86,7 @@ MRI.DataProcessing.checkForOverranging(pfile);
 pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 
 % Pull relavent info from header
-npts = pfile.rdb.rdb_hdr_frame_size;
+npts = pfile.rdb.rdb_hdr_frame_size;nGas = length(gas_idx);
 nFrames = pfile.rdb.rdb_hdr_user20;
 bw = pfile.rdb.rdb_hdr_user12;                 % Receiver bandwidth (kHz)
 dwell_time = 1/(2*bw*1000);
@@ -80,11 +112,13 @@ gasFit = NMR_Fit(gas_pfile.data,t,zeropadsize,linebroadening,gas_fit_guess(:,1),
 gasFit = gasFit.fitTimeDomainSignal();
 % gasMix = NMR_Mix(gas_pfile.data,t,[],[],[],[],zeropadsize,linebroadening,center_freq);
 % gasMix = gasMix.fitTool();
-figure()
-gasFit.plotFit();
+gasFit.describe();
+% figure()
+% gasFit.plotFit();
 
 %% Split flip calibration frames into separate pfile
 flipCal_pfile = pfile;
+TE90=1215.433
 flipCal_pfile.data = pfile.data(:,(nDisFrames+nGasFrames+throwAwayCalFrames+1):end);
 nFlipCal = size(flipCal_pfile.data,2);
 flipCal_pfile.rdb.rdb_hdr_user20 = nFlipCal; % nframes
@@ -109,28 +143,56 @@ phases = zeros(nTE,nComp);
 barrier_ratio = zeros(nTE,nComp);
 gas_ratio = zeros(nTE,nComp);
 ded_gas_ratio = zeros(nTE,nComp);
+delta_rec_freq = pfile.image.user12; % freq_off in Hz
 
 b = zeros(4,2048);
 te90 = zeros(nTE,1);
 if(nComp > 3)
     plasma_phase = zeros(nTE,1);
 end
+
+specFitFig = figure('Name','Spectral Fitting','Units','Pixels','Position',[66 372 820 602]);
+te90Fig = figure('Name','TE 90','Units','Pixels','Position',[887 372 494 600]);
+axToLink = [];
+legendstr = {'RBC','Barrier 1','Barrier 2','Gas 1' 'Gas 2'};
+relTimeVals = (linspace(-6000,max(t*1E6),50000))*1E-6;
+nDis = length(rbc_idx)+ length(barrier_idx);
+nGas = length(gas_idx);
+legStr = cell(1,(nDis+1));
+metricOfGoodness = zeros(0,length(relTimeVals));
+for iLeg = 1:nDis
+    legStr{iLeg} = [legendstr{iLeg} ] ;
+end
+legStr{nDis+1} = ['Net Signal'];
+legendStrings = cell(1, nDis+1);
+for iComp=1:nDis
+    legendStrings{iComp} = legendstr{iComp};
+end
+for iGas=1:nGas
+    legendStrings{nDis+iGas} = legendstr{3+iGas};
+end
 for iTE = 1:nTE
-    %
+    % Calculate average fid for TE
     teData = dis_pfile.data(:,(skipDownstreamFrames*nTE+iTE):nTE:end);
-    
-    % Undo TE Phase from off center excitation
-    delta_phase = delta_rec_freq*(TEs(iTE)-TEs(1));
-    delta_phase = exp(-1i*2*pi*delta_phase);
     teData = mean(teData,2);
-    teData = teData.*delta_phase;
     
+    % Force zero phase at T=0 to align all FIDs
+    nmrFit = NMR_Fit(teData, t, zeropadsize,linebroadening, dis_fit_guess(:,1),dis_fit_guess(:,2),...
+        dis_fit_guess(:,3),dis_fit_guess(:,4));
+    nmrFit = nmrFit.fitTimeDomainSignal();  
+    figure();
+    nmrFit.plotFit();
+    figure()
+    nmrFit.plotTimeFit();
+    
+    startingVec = nmrFit.nmrMix.calcTimeDomainSignal(-TEs(iTE));
+    startingPhase = angle(startingVec);
+    teData = teData.*exp(-1i*startingPhase);
+        
     % Calculate fit
     nmrFit = NMR_Fit(teData, t, zeropadsize,linebroadening, dis_fit_guess(:,1),dis_fit_guess(:,2),...
         dis_fit_guess(:,3),dis_fit_guess(:,4));
-%     nmrFit = nmrFit.setBounds( amp_lb, amp_ub, freq_lb, freq_ub,...
-%         fwhm_lb, fwhm_ub, phase_lb, phase_ub);
-    nmrFit = nmrFit.fitTimeDomainSignal();
+    nmrFit = nmrFit.fitTimeDomainSignal();  
     
     % save fits
     amplitudes(iTE,:) = nmrFit.nmrMix.amp;
@@ -159,37 +221,181 @@ for iTE = 1:nTE
         te90(iTE) = te90(iTE) + time180(iTE);
     end
     
-    % Show fit
-    figure();
-    ax = nmrFit.plotFit();
-    title(ax,['TE' num2str(iTE)]);
+    % Calculate TE_ghetto which always has 
+    onRbcResMix = NMR_Mix(nmrFit.nmrMix.amp([rbc_idx barrier_idx gas_idx]), ...
+        nmrFit.nmrMix.freq([rbc_idx barrier_idx gas_idx])-nmrFit.nmrMix.freq(rbc_idx), ... % differential freq
+        nmrFit.nmrMix.fwhm([rbc_idx barrier_idx gas_idx]), ...
+        nmrFit.nmrMix.phase([rbc_idx barrier_idx gas_idx])-nmrFit.nmrMix.phase(rbc_idx) ... % zero starting phase 
+        );
     
+    relTimeTE = relTimeVals -  TEs(iTE);
+    onRbcSig = onRbcResMix.calcTimeDomainSignal(relTimeTE(:));
+    onRbcCompSig = onRbcResMix.calcComponentTimeDomainSignal(relTimeTE(:));
+    metricOfGoodness(iTE,:) = real(onRbcCompSig(:,rbc_idx)./sum(abs(real(onRbcCompSig(:,[barrier_idx gas_idx]))),2));
+    
+    actSig = nmrFit.nmrMix.calcTimeDomainSignal(relTimeTE(:));
+    actCompSig = nmrFit.nmrMix.calcComponentTimeDomainSignal(relTimeTE(:));
+    
+    % Show Time signal
+    figure(te90Fig);
+    ax1 = subplot(3,1,1);
+    hold on;
+    line((relTimeVals)*1E6,real(actCompSig(:,rbc_idx)),'Color',colors(1,:),'Linestyle',linestyles{iTE},'Parent',ax1);
+    for ibar = 1:length(barrier_idx)
+        line((relTimeVals)*1E6,real(actCompSig(:,1+ibar)),'Color',colors(1+ibar,:),'Linestyle',linestyles{iTE},'Parent',ax1);
+    end
+    line((relTimeVals)*1E6,real(actSig),'Color','k','Linestyle',linestyles{iTE},'Parent',ax1);
+    hold off;
+    xlabel('Time (usec)');
+    ylabel('Real Signal');
+    if(iTE==nTE)
+        legend(legStr,'Orientation','Vertical');
+    end
+
+    % Show phase relative to RBC
+    ax2 = subplot(3,1,2);
+    hold on;
+    line((relTimeVals)*1E6,rad2deg(angle(onRbcCompSig(:,rbc_idx))),'Color',colors(1,:),'Linestyle',linestyles{iTE},'Parent',ax2);
+    for ibar = 1:length(barrier_idx)
+        line((relTimeVals)*1E6,rad2deg(angle(onRbcCompSig(:,1+ibar))),'Color',colors(1+ibar,:),'Linestyle',linestyles{iTE},'Parent',ax2);
+    end
+    line((relTimeVals)*1E6,rad2deg(angle(onRbcSig)),'Color','k','Linestyle',linestyles{iTE},'Parent',ax2);
+    hold off;
+    xlabel('Time (usec)');
+    ylabel('Relative Phase (Degrees)');
+    if(iTE==nTE)
+        legend(legStr,'Orientation','Vertical');
+    end
+    ylim(ax2,[-180 180]);
+    set(ax2,'YTick',180*[-1 -0.5 0 0.5 1],'YGrid','on','GridLineStyle',':');
+    
+    % Show metricOfGoodness
+    ax3 = subplot(3,1,3);
+    hold on;
+    line((relTimeVals)*1E6,metricOfGoodness(iTE,:),'Linestyle',linestyles{iTE},'Parent',ax3);
+    hold off;
+    xlabel('Time (usec)')
+    ylabel('RBC:barrierContamination ratio')
+    linkaxes([ax1; ax2; ax3],'x');
+    xlim(ax3,[-1000 3000]);
+    ylim(ax3,[0 5]);
+    
+    % Show component fits
+    figure(specFitFig);
+    ax3 = subplot(nTE,2,1+2*((1:nTE)-1));
+    hold on;
+    if(iTE == 1)
+        axToLink = [axToLink ax3];
+    end
+    individualSpectrums = nmrFit.nmrMix.calcComponentLorentzianCurves(nmrFit.f);
+    nComponents = length(nmrFit.nmrMix.amp);
+    
+    for iComp=1:nDis
+        line(nmrFit.f,real(individualSpectrums(:,iComp)),'Color',colors(iComp,:),'Linestyle',linestyles{iTE},'Parent',ax3);
+    end
+    for iGas=1:nGas
+       line(nmrFit.f,real(individualSpectrums(:,nDis+iGas)),'Color',colors(3+iGas,:),'Linestyle',linestyles{iTE},'Parent',ax3);
+    end
+    
+    if(iTE==nTE)
+        legend(legendStrings,'Location','North','Orientation','vertical');
+    end 
+    xlabel('Freq(Hz)');
+    ylabel('Lorentzian Intensity');
+    set(ax3,'XDir','reverse');
+    hold off;
+    
+    % Show residuals at first TE
+    timeToShow = TEs(1);
+    ax4 = subplot(nTE,2,2*(iTE-1)+2);
+    axToLink = [axToLink ax4];  
+    fittedSpectrum = nmrFit.nmrMix.calcSpectralDomainSignal(nmrFit.f);
+    residualSpectrum = nmrFit.spectralDomainSignal - fittedSpectrum;
+    axToLink = [axToLink ax4];
+    line(nmrFit.f,real(nmrFit.spectralDomainSignal),'Color','b','Linestyle','-','Parent',ax4);
+    hold on;
+    line(nmrFit.f,real(fittedSpectrum),'Color','g','Linestyle','-','Parent',ax4);
+    line(nmrFit.f,real(residualSpectrum),'Color','r','Linestyle','-','Parent',ax4);
+    hold off;
+    if(iTE==1)
+        legend('Measured','Fitted','Residual','Location','North','Orientation','horizontal');
+    end
+    xlabel('Freq (Hz)');
+    ylabel('Real Intensity');
+    set(ax4,'XDir','reverse');
+    title(ax4,['TE' num2str(iTE)]);
+    linkaxes(axToLink,'x');
+    xlim(ax4,[-1125 250]);
     
     % Describe fit
     nmrFit.describe(gasFit.nmrMix.amp(1));
 end
+worstCaseMetric = min(metricOfGoodness,[],1);
+achievableTime = (relTimeVals > minTEghetto) & (relTimeVals < maxTEghetto);
+worstAchievable = worstCaseMetric(achievableTime);
+timeAchievable = relTimeVals(achievableTime);
+[rbc_to_crap optimum_idx] = max(worstAchievable);
+te_ghetto = timeAchievable(optimum_idx);
+figure(te90Fig);
+ax3 = subplot(3,1,3);
+hold on;
+plot(te_ghetto*1E6,rbc_to_crap,'o','MarkerEdgeColor','none','MarkerFaceColor','r');
+hold off;
 
-
-
-figure()
+figure('name','Spectroscopic Ratios','Units','Pixels','Position',[1383 371 538 603])
 ax1 = subplot(4,1,1);
-plot(repmat(TEs',[1 nComp]),amplitudes);
+plot(TEs',amplitudes(:,1),'Color',colors(1,:));
+hold on;
+for iDis = 2:nDis
+    plot(TEs',amplitudes(:,iDis),'Color',colors(iDis,:));
+end
+for iGas = 1:nGas
+    plot(TEs',amplitudes(:,nDis+iGas),'Color',colors(3+nGas,:));
+end
+hold off;
 xlabel('TE');
 ylabel('Signal intensity (arbs)');
-legend('rbc','barrier 1','barrier 2','gas 1','gas 2')
+legend(legendStrings);
 
 ax2 = subplot(4,1,2);
-plot(repmat(TEs',[1 nComp]), barrier_ratio);
+bar_leg = {'rbc:barrier','barrier 1:barrier','barrier 2:barrier',...
+    'gas 1:barrier','gas 2:barrier'};
+plot(TEs',barrier_ratio(:,1),'Color',colors(1,:));
+hold on;
+barrierlegendStrings = cell(1, nDis+nGas);
+barrierlegendStrings{1} = bar_leg{1};
+for iDis=2:nDis
+    plot(TEs',barrier_ratio(:,iDis),'Color',colors(iDis,:));
+    barrierlegendStrings{iDis} = bar_leg{iDis};
+end
+for iGas=1:nGas
+    plot(TEs',barrier_ratio(:,nDis+iGas),'Color',colors(3+nGas,:));
+    barrierlegendStrings{nDis+iGas} = bar_leg{3+iGas};
+end
+hold off;
 xlabel('TE');
 ylabel('Ratio with barrier');
-legend('rbc:barrier','barrier 1:barrier','barrier 2:barrier',...
-    'gas 1:barrier','gas 2:barrier')
+legend(barrierlegendStrings)
 
 ax3 = subplot(4,1,3);
-plot(repmat(TEs',[1 nComp]), gas_ratio);
+gas_leg = {'rbc:gas','barrier 1:gas','barrier 2:gas', 'gas 1:gas', 'gas 2:gas'};
+plot(TEs',gas_ratio(:,1),'Color',colors(1,:));
+hold on;
+gasLegendStrings = cell(1, nDis+nGas);
+gasLegendStrings{1} = gas_leg{1};
+for iDis=2:nDis
+    plot(TEs',gas_ratio(:,iDis),'Color',colors(iDis,:));
+    gasLegendStrings{iDis} = gas_leg{iDis};
+end
+for iGas=1:nGas
+    plot(TEs',gas_ratio(:,nDis+iGas),'Color',colors(3+nGas,:));
+    gasLegendStrings{nDis+iGas} = gas_leg{3+iGas};
+end
+hold off;
 xlabel('TE');
 ylabel('Ratio with gas');
-legend('rbc:gas','barrier 1:gas','barrier 2:gas', 'gas 1:gas', 'gas 2:gas');
+legend(gasLegendStrings)
+
 
 ax4 = subplot(4,1,4);
 plot(TEs, te90*1E6);
@@ -202,12 +408,14 @@ mean_te90 = mean(te90);
 stdev_te90 = std(te90);
 phase90_usec = round(time90*1E6)
 te90_usec = round(te90'*1E6)
-barrier_ratio(:,1)'
+rbcToBarrierRatio = barrier_ratio(:,1)'
 
 % Sumamrize
+disp(['TE_ghetto' '=' num2str(te_ghetto*1E6)]);
 disp(['TE90=' num2str(mean_te90*1E6) 'usec (' num2str(stdev_te90*1E6) 'usec stdev)']);
 disp(['Flip angle ~' num2str(flip_angle) ' (' num2str(flip_err) ' error)']);
-disp(['mean RBC:Barrier = ' num2str(mean(abs(barrier_ratio(rbc_te90_idx,:)))) ' (' num2str(std(abs(barrier_ratio(rbc_te90_idx,:)))) ' std dev)']);
+disp(['mean RBC:Barrier = ' num2str(mean(abs(barrier_ratio(:,rbc_te90_idx)))) ' (' num2str(std(abs(barrier_ratio(:,rbc_te90_idx)))) ' std dev)']);
 
-
+te_ghetto = round(te_ghetto*1E6)
+rbc_to_crap
 

@@ -179,16 +179,24 @@ classdef NMR_Fit
             fitoptions.FinDiffType = 'central';
             fitoptions.Algorithm = 'trust-region-reflective';
             fitoptions.MaxFunEvals = 5000;
-            fit_params = lsqcurvefit(@obj.calcTimeSigRealImag,guess,obj.t(:),...
-                [real(obj.timeDomainSignal(:)),imag(obj.timeDomainSignal(:))],...
-                obj.lb(:),obj.ub(:),fitoptions);
-            
-            % Separate out the components from the matrix
-            fit_vec = fit_params(1,:).*exp(1i*pi*fit_params(4,:)/180);
-            fit_amp = abs(fit_vec);
-            fit_freq = fit_params(2,:);
-            fit_fwhm = fit_params(3,:);
-            fit_phase = angle(fit_vec)*180/pi;
+%             if(isempty(obj.lb) & (obj.ub))
+%                 fitFunc = @(t)sum(Mix.calcTimeDomainSignal(t),2);
+%                 fit_params = lsqcurvefit(@obj.calcTimeSigRealImag,guess,obj.t(:),...
+%                     [real(obj.timeDomainSignal(:)),imag(obj.timeDomainSignal(:))],...
+%                     obj.lb(:),obj.ub(:),fitoptions);
+%                 
+%             else
+                fit_params = lsqcurvefit(@obj.calcTimeSigRealImag,guess,obj.t(:),...
+                    [real(obj.timeDomainSignal(:)),imag(obj.timeDomainSignal(:))],...
+                    obj.lb(:),obj.ub(:),fitoptions);
+                
+                % Separate out the components from the matrix
+                fit_vec = fit_params(1,:).*exp(1i*pi*fit_params(4,:)/180);
+                fit_amp = abs(fit_vec);
+                fit_freq = fit_params(2,:);
+                fit_fwhm = fit_params(3,:);
+                fit_phase = angle(fit_vec)*180/pi;
+%             end      
         end
         
         function obj = fitTimeDomainSignal(obj)
@@ -206,11 +214,11 @@ classdef NMR_Fit
             % A function used in fitting to allow constraints for complex
             % fitting. This is the same as calling calcTimeDomainSignal of
             % the NMR_Mix object, only it separates the real and imaginary
-            % parts to allow for constraints to be used in fitting.       
-              tmpNmrMix = NMR_Mix(nmr_params(1,:), nmr_params(2,:), ...
-                  nmr_params(3,:), nmr_params(4,:));
-              complexSig = sum(tmpNmrMix.calcTimeDomainSignal(t),2);
-              realImagSig = [real(complexSig) imag(complexSig)];
+            % parts to allow for constraints to be used in fitting.
+            tmpNmrMix = NMR_Mix(nmr_params(1,:), nmr_params(2,:), ...
+                nmr_params(3,:), nmr_params(4,:));
+            complexSig = sum(tmpNmrMix.calcTimeDomainSignal(t),2);
+            realImagSig = [real(complexSig) imag(complexSig)];
         end
         
         function ax1 = plotFit(obj)
@@ -243,10 +251,11 @@ classdef NMR_Fit
             phaseSig = angle(obj.spectralDomainSignal);
             phaseFit = angle(fittedSpectrum);
             phaseDelta = phaseSig - phaseFit;
-            plot(obj.f, phaseSig,'-b');
+            plot(obj.f, unwrap(phaseSig),'-b');
             hold on;
-            plot(obj.f,phaseFit,'-g');
-            plot(obj.f,phaseDelta,'-r');
+            plot(obj.f,unwrap(phaseFit),'-g');
+            plot(obj.f,unwrap(phaseDelta),'-r');
+            plot(obj.f,unwrap(angle(residualSpectrum)),'-c');
             
             hold off;
             ylabel('Phase (Radians)');
@@ -291,9 +300,105 @@ classdef NMR_Fit
             ylabel('Component Intensity');
             set(ax1,'xticklabel',{[]}) ;
             set(ax1,'XDir','reverse');
-%             if(~isempty(obj.fref))
-%                 set(ax1ppm,'XDir','reverse');
-%             end
+            %             if(~isempty(obj.fref))
+            %                 set(ax1ppm,'XDir','reverse');
+            %             end
+            
+            % Keep all x axes in sinc
+            linkaxes([ax1,ax2,ax3,ax4 ax5],'x');
+            
+            %             if(~isempty(obj.fref))
+            %                 % Initialize XLim in correct units
+            %                 set(ax1ppm,'xlim',NMR_Mix.relFreqToPpm(get(ax2,'XLim'),obj.fref));
+            %
+            %                 % Keep ppm axiz in sinc with freq axis
+            %                 xLimListener = addlistener( ax1, 'XLim', 'PostSet', ...
+            %                     @(src,evt) set(ax1ppm,'XLim',...
+            %                     NMR_Mix.relFreqToPpm(get(ax1,'XLim'),obj.fref)) );
+            %             end
+        end
+        
+        function ax1 = plotTimeFit(obj)
+            % Calculate fitted and residual spectrums
+            individualSpectrums = obj.nmrMix.calcComponentTimeDomainSignal(obj.t);
+            fittedSpectrum = obj.nmrMix.calcTimeDomainSignal(obj.t);
+            residualSpectrum = obj.timeDomainSignal - fittedSpectrum;
+            
+            % Calculate lorentzian curves for each component
+            nComponents = length(obj.nmrMix.amp);
+            fMat = repmat(obj.t,[1 nComponents]);
+            
+            legendStrings = cell(1, nComponents);
+            for iComp=1:nComponents
+                legendStrings{iComp} = ['C\_' sprintf('%03.0f',iComp)];
+            end
+            
+            % Show results to user
+            ax2 = subplot(5,1,2);
+            plot(obj.t,abs(obj.timeDomainSignal),'-b');
+            hold on;
+            plot(obj.t,abs(fittedSpectrum),'-g');
+            plot(obj.t,abs(residualSpectrum),'-r');
+            hold off;
+            ylabel('Magnitude Intensity');
+            set(ax2,'xticklabel',{[]}) ;
+            set(ax2,'XDir','reverse');
+            
+            ax3 = subplot(5,1,3);
+            phaseSig = angle(obj.timeDomainSignal);
+            phaseFit = angle(fittedSpectrum);
+            phaseDelta = phaseSig - phaseFit;
+            plot(obj.t, phaseSig,'-b');
+            hold on;
+            plot(obj.t,phaseFit,'-g');
+            plot(obj.t,phaseDelta,'-r');
+            
+            hold off;
+            ylabel('Phase (Radians)');
+            set(ax3,'xticklabel',{[]}) ;
+            set(ax3,'XDir','reverse');
+            
+            ax4 = subplot(5,1,4);
+            plot(obj.t,real(obj.timeDomainSignal),'-b');
+            hold on;
+            plot(obj.t,real(fittedSpectrum),'-g');
+            plot(obj.t,real(residualSpectrum),'-r');
+            hold off;
+            ylabel('Real Intensity');
+            set(ax4,'xticklabel',{[]});
+            set(ax4,'XDir','reverse');
+            
+            ax5 = subplot(5,1,5);
+            plot(obj.t,imag(obj.timeDomainSignal),'-b');
+            hold on;
+            plot(obj.t,imag(fittedSpectrum),'-g');
+            plot(obj.t,imag(residualSpectrum),'-r');
+            hold off;
+            xlabel('Spectral Frequency (Hz)');
+            ylabel('Imaginary Intensity');
+            legend('Measured','Fitted','Residual');
+            set(ax5,'XDir','reverse');
+            
+            %             if(~isempty(obj.fref))
+            %                 % Add PPM axis
+            %                 ax1ppm = subplot(5,1,1);
+            %                 set(ax1ppm,'units','normalized',...
+            %                     'XAxisLocation','top','YAxisLocation','right',...
+            %                     'YTick',[],'YTickLabel',[],'Color','none');
+            %
+            %                 ax1 = axes('Position',get(ax1ppm,'Position'));
+            %             else
+            ax1 = subplot(5,1,1);
+            %             end
+            
+            plot(fMat,real(individualSpectrums));
+            legend(legendStrings);
+            ylabel('Component Intensity');
+            set(ax1,'xticklabel',{[]}) ;
+            set(ax1,'XDir','reverse');
+            %             if(~isempty(obj.fref))
+            %                 set(ax1ppm,'XDir','reverse');
+            %             end
             
             % Keep all x axes in sinc
             linkaxes([ax1,ax2,ax3,ax4 ax5],'x');

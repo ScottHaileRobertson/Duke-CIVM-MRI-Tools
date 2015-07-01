@@ -63,7 +63,7 @@ classdef NMR_Mix < handle
             % Sorts all components by thier frequencies in decending order
             [sortFreq sortIdx] = sort(obj.freq, 'descend');
             obj.amp = obj.amp(sortIdx);
-            obj.freq = obj.freq(sortIdx);
+            obj.freq = sortFreq;
             obj.fwhm = obj.fwhm(sortIdx);
             obj.phase = obj.phase(sortIdx);
         end
@@ -74,7 +74,6 @@ classdef NMR_Mix < handle
             % this function returns the time signal for each individual
             % component. The overall "mix" signal can be obtained with 
             % calcTimeDomainSignal
-            t = t(:); % immune to passing in a row or col vec
             nt = length(t);
             componentTimeDomainSignal = repmat(obj.amp,[nt 1]).*...
                 exp(1i*pi/180*repmat(obj.phase,[nt 1]) - ...
@@ -96,7 +95,6 @@ classdef NMR_Mix < handle
             % (f is in Hz). Note, this function returns the spectrum for each individual
             % component. The overall "mix" spectrum can be obtained with 
             % calcSpectralDomainSignal.
-            f = f(:); % immune to passing in a row or col vec
             nf = length(f);
             componentSpectralDomainSignal = (repmat(obj.amp,[nf 1]).*exp(1i*pi/180*repmat(obj.phase,[nf 1])))./...
                 (1i*2*pi*(repmat(f,[1 length(obj.amp)])-repmat(obj.freq,[nf 1]))+...
@@ -119,7 +117,6 @@ classdef NMR_Mix < handle
             % Note, this function returns a curve for each individual
             % component. The overall "mix" of lorentzian curves can be
             % obtained with calcLorentzianCurves.
-            f = f(:); % immune to passing in a row or col vec
             nf = length(f);
             nc = length(obj.amp);
             linewidth = pi*repmat(obj.fwhm,[nf 1]);
@@ -144,7 +141,6 @@ classdef NMR_Mix < handle
             % Note, this function returns a curve for each individual
             % component. The overall "mix" of dispersive functions can be
             % obtained with calcDispersiveCurves.
-            f = f(:); % immune to passing in a row or col vec
             nf = length(f);
             nc = length(obj.amp);
             diff_freq = 2*pi*(repmat(obj.freq,[nf 1])-repmat(f,[1 nc]));
@@ -158,7 +154,6 @@ classdef NMR_Mix < handle
             % Note, this function returns a curve for the net signal from 
             % all components. The individual dispersive functions can be
             % obtained with calcComponentDispersiveCurves.
-            f = f(:); % immune to passing in a row or col vec
             nf = length(f);
             nc = length(obj.amp);
             diff_freq = 2*pi*(repmat(obj.freq,[nf 1])-repmat(f,[1 nc]));

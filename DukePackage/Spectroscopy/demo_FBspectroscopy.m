@@ -1,5 +1,5 @@
 nToAvg = 25;
-skipSize = 1;
+skipSize = 5;
 startInhale = 1;
 
 rbc_idx = 1;
@@ -11,13 +11,13 @@ gas_idx = [4];
 % freq = [-35 -285 -393 -3840 -3870];
 % fwhm = [215 200 115 50 50];
 % phase = [0 0 0 0 0];
-amp = [1 1 1 1];
-freq = [-35 -285 -393 -3840 ];
-fwhm = [215 200 150 20 ];
-phase = [0 0 0 0 ];
+amp = [1 1 1 1 1];
+freq = [-35 -285 -393 -3840 -3890 ];
+fwhm = [215 200 150 20 20];
+phase = [0 0 0 0 0];
 
 % Find pfile
-pfile_path = filepath('C:\Users\Scott\Desktop\')
+pfile_path = filepath('/home/scott/Public/data/')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -63,8 +63,8 @@ fwhm = nmrFit.nmrMix.fwhm;
 phase = nmrFit.nmrMix.phase;
 
 % Upper bounds
-freq_halfRange = [25 25 25 10]; 
-fwhm_halfRange = [30 100 100 20];
+freq_halfRange = [25 25 25 5 5]; 
+fwhm_halfRange = [30 100 100 5 20];
 amp_ub = inf*ones(size(fwhm));
 freq_ub = nmrFit.nmrMix.freq + freq_halfRange;
 fwhm_ub = nmrFit.nmrMix.fwhm + fwhm_halfRange;
@@ -116,35 +116,38 @@ deltaf = [freq_dyn(:,1)-freq_dyn(iMiddle,1)...
 colors = [     0.8500    0.3250    0.0980 
     0.9290    0.6940    0.1250
     0.4660    0.6740    0.1880
-     0    0.4470    0.7410];
+     0    0.4470    0.7410
+     0.3010    0.7450    0.9330
+     0.4940    0.1840    0.5560
+     0.6350    0.0780    0.1840];
 
  linewidth = 1;
 titles = {'RBC' 'Barrier 1' 'Barrier 2' 'Gas 1' 'Gas 2'};
 figure();
-axHandles = zeros(1,4*nComp+3);
+axHandles = zeros(1,4*nComp+4);
 t_plot = t_dyn(startInhale:end,1)-t_dyn(startInhale,1);
 for iComp = 1:nComp
     % Amplitude
-    axHandles(4*(iComp-1)+1) = subplot(4,nComp,iComp);
+    axHandles(nComp*(iComp-1)+1) = subplot(4,nComp,iComp);
     plot(t_plot,amp_dyn(startInhale:end,iComp)/gasFit.nmrMix.amp(1),'-','LineWidth',linewidth,'color',colors(iComp,:));
     xlabel('Time (sec)');
     ylabel('Amplitude (rel to ded. Gas)');
     title(titles(iComp));
     
     % Frequency
-    axHandles(4*(iComp-1)+2) = subplot(4,nComp,4+iComp);
+    axHandles(nComp*(iComp-1)+2) = subplot(4,nComp,nComp+iComp);
     plot(t_plot,freq_dyn(startInhale:end,iComp),'-','LineWidth',linewidth,'color',colors(iComp,:));
     xlabel('Time (sec)');
     ylabel('Frequency (Hz)');
     
     % Linewidth
-    axHandles(4*(iComp-1)+3) = subplot(4,nComp,8+iComp);
+    axHandles(nComp*(iComp-1)+3) = subplot(4,nComp,2*nComp+iComp);
     plot(t_plot,fwhm_dyn(startInhale:end,iComp),'-','LineWidth',linewidth,'color',colors(iComp,:));
     xlabel('Time (sec)');
     ylabel('Linewidth (Hz)');
     
     % Phase
-    axHandles(4*(iComp-1)+4) = subplot(4,nComp,12 + iComp);
+    axHandles(nComp*(iComp-1)+4) = subplot(4,nComp,3*nComp + iComp);
     plot(t_plot,phase_dyn(startInhale:end,iComp),'-','LineWidth',linewidth,'color',colors(iComp,:));
     xlabel('Time (sec)');
     ylabel('Phase (degrees)');
@@ -152,7 +155,13 @@ end
 
 figure()
 % Dissolved Ratio
-axHandles(4*nComp + 1) = subplot(3,1,1);
+axHandles(4*nComp + 1) = subplot(4,1,1);
+multiply_factor = 1./sum(amp_dyn(startInhale:end,[rbc_idx barrier_idx]),2);
+plot(t_dyn(startInhale:end,3)-t_dyn(startInhale,1),amp_dyn(startInhale:end,1)./amp_dyn(startInhale:end,3),'-','LineWidth',2,'color',[0.8500    0.3250    0.0980]);
+xlabel('Time (sec)');
+ylabel('RBC:Barrier');
+
+axHandles(4*nComp + 2) = subplot(4,1,2);
 multiply_factor = 1./sum(amp_dyn(startInhale:end,[rbc_idx barrier_idx]),2);
 plot(t_dyn(startInhale:end,3)-t_dyn(startInhale,1),multiply_factor.*amp_dyn(startInhale:end,3),'-','LineWidth',2,'color',[0.4660    0.6740    0.1880]);
 hold on;
@@ -163,7 +172,7 @@ xlabel('Time (sec)');
 ylabel('Ratio with Dissolved');
 
 % Gas Ratio
-axHandles(4*nComp + 2) = subplot(3,1,2);
+axHandles(4*nComp + 3) = subplot(4,1,3);
 multiply_factor = 1./sum(amp_dyn(startInhale:end,[gas_idx]),2);
 plot(t_dyn(startInhale:end,3)-t_dyn(startInhale,1),multiply_factor.*amp_dyn(startInhale:end,3),'-','LineWidth',2,'color',[0.4660    0.6740    0.1880]);
 hold on;
@@ -174,7 +183,7 @@ xlabel('Time (sec)');
 ylabel('Ratio with Gas');
 
 % Dedicated Gas Ratio
-axHandles(4*nComp + 3) = subplot(3,1,3);
+axHandles(4*nComp + 4) = subplot(4,1,4);
 multiply_factor = 1./gasFit.nmrMix.amp(1);
 plot(t_dyn(startInhale:end,3)-t_dyn(startInhale,1),multiply_factor.*amp_dyn(startInhale:end,3),'-','LineWidth',2,'color',[0.4660    0.6740    0.1880]);
 hold on;
@@ -187,6 +196,6 @@ ylabel('Ratio with Dedicated Gas');
 % Link all axes
 linkaxes(axHandles,'x');
 xlim([0 max(t_plot(:))]);
-legend('RBC','Barrier 1','Barrier 2');
+legend('Barrier 1','Barrier 1','RBC');
 
 
