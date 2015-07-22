@@ -3,13 +3,13 @@
 % 1. Define reconstruction parameters
 output_image_size = 128*[1 1 1];
 overgrid_factor = 3;
-kernel.sharpness = 0.39;
+kernel.sharpness = 0.3;
 kernel.extent = 9*kernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 10;
 
-pfile_path = filepath('/home/scott/Desktop/rohan_20150617/P43520.7')
+pfile_path = filepath('/home/scott/Desktop')
 % pfile_path = filepath('/home/scott/Desktop/')
 
 % Human Ventilation Parameters
@@ -18,7 +18,7 @@ pfileOverride = GE.Pfile.Pfile();
 pfileOverride.rdb.rdb_hdr_user1  = 0.992; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 pfileOverride.rdb.rdb_hdr_user44 = 2.976; % pw_gxw/1000
-pfileOverride.rdb.rdb_hdr_user22 = 0.05; %toff
+pfileOverride.rdb.rdb_hdr_user22 = 0.15; %toff
 % pfileOverride.rdb.rdb_hdr_user23 = 101; % primeplus
 pfileOverride.rdb.rdb_hdr_user23 = 137.508; % primeplus
 pfileOverride.rdb.rdb_hdr_user32 = 1;
