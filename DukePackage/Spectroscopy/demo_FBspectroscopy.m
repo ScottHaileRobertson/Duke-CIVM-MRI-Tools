@@ -17,7 +17,7 @@ fwhm = [215 200 150 20 20];
 phase = [0 0 0 0 0];
 
 % Find pfile
-pfile_path = filepath('/home/scott/Public/data/')
+pfile_path = filepath('/home/scott/Desktop')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);

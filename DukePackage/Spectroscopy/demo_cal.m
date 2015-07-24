@@ -1,40 +1,40 @@
-% %%3peaks
-% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
-% dis_fit_guess = [
-%     1           -55            140          0; % Component #1
-%     1           -348           130          0; % Component #3
-%     1           -3837           35          0; % Component #4
-%     ];
-% 
-% rbc_idx = 1;
-% barrier_idx = 2;
-% rbc_te90_idx = 1;
-% barrier_te90_idx = 2;
-% gas_idx = 3;
-
-%%4peaks
+%%3peaks
 %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
 dis_fit_guess = [
-    1           -45            230          0; % Component #1
-    1           -290           275          0; % Component #2
-    1           -381           180          0; % Component #3
-    1           -3850           70          0; % Component #4
+    1           -100            136          0; % Component #1
+    1           -348           130          0; % Component #3
+    1           -3837           35          0; % Component #4
     ];
 
 rbc_idx = 1;
-barrier_idx = 2:3;
+barrier_idx = 2;
 rbc_te90_idx = 1;
-barrier_te90_idx = 3;
-gas_idx = 4;
+barrier_te90_idx = 2;
+gas_idx = 3;
+
+% %%4peaks
+% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+% dis_fit_guess = [
+%     1           -28            190          0; % Component #1
+%     1           -290           200          0; % Component #2
+%     1           -381           130          0; % Component #3
+%     1           -3850           30          0; % Component #4
+%     ];
+% 
+% rbc_idx = 1;
+% barrier_idx = 2:3;
+% rbc_te90_idx = 1;
+% barrier_te90_idx = 3;
+% gas_idx = 4;
 
 % %%5 peaks
 % %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
 % dis_fit_guess = [
-%     1           -30            215          0; % Component #1
-%     1           -290           200          0; % Component #2
-%     1           -393           115          0; % Component #3
-%     1           -3848           30          0; % Component #4
-%     1           -3880           60          0; % Component #4
+%     1           0            215          0; % Component #1
+%     1           -280           200          0; % Component #2
+%     1           -380           115          0; % Component #3
+%     1           -3835           30          0; % Component #4
+%     1           -3860           60          0; % Component #4
 %     ];
 % 
 % rbc_idx = 1;
@@ -47,8 +47,8 @@ gas_fit_guess = [   1           8           15          0]; % Component #
 
 % TE Limits
 maxTEghetto = 1500E-6;
-minTEghetto = 500E-6;
-minte = 00E-6;
+minTEghetto = 600E-6;
+minte = 400E-6;
 
 % Miscelaneous parameters
 endToff = 1;
@@ -73,7 +73,7 @@ linestyles = {'-','--','-.',':'};
 
 % Get Pfile
 % pfile_path = filepath('/home/scott/Desktop/')
-pfile_path = filepath('/home/scott/Desktop/Subj46B/P14848_phaseCal.7')
+pfile_path = filepath('/home/scott/Public/data/20150716/tardis/')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -176,23 +176,21 @@ for iTE = 1:nTE
     teData = dis_pfile.data(:,(skipDownstreamFrames*nTE+iTE):nTE:end);
     teData = mean(teData,2);
     
-    % Force zero phase at T=0 to align all FIDs
+    % Force zero phase at latest TE to align all FIDs
     nmrFit = NMR_Fit(teData, t, zeropadsize,linebroadening, dis_fit_guess(:,1),dis_fit_guess(:,2),...
         dis_fit_guess(:,3),dis_fit_guess(:,4));
     nmrFit = nmrFit.fitTimeDomainSignal();  
-    figure();
-    nmrFit.plotFit();
-    figure()
-    nmrFit.plotTimeFit();
-    
-    startingVec = nmrFit.nmrMix.calcTimeDomainSignal(-TEs(iTE));
+%     figure();
+%     nmrFit.plotFit();
+%     figure()
+%     nmrFit.plotTimeFit();
+    startingVec = nmrFit.nmrMix.calcTimeDomainSignal(TEs(nTE)-TEs(iTE));
     startingPhase = angle(startingVec);
     teData = teData.*exp(-1i*startingPhase);
-        
-    % Calculate fit
-    nmrFit = NMR_Fit(teData, t, zeropadsize,linebroadening, dis_fit_guess(:,1),dis_fit_guess(:,2),...
-        dis_fit_guess(:,3),dis_fit_guess(:,4));
-    nmrFit = nmrFit.fitTimeDomainSignal();  
+    nmrFit = NMR_Fit(teData, t, zeropadsize,linebroadening, nmrFit.nmrMix.amp,nmrFit.nmrMix.freq,...
+        nmrFit.nmrMix.fwhm,nmrFit.nmrMix.phase-rad2deg(startingPhase));
+    figure();
+    nmrFit.plotFit();
     
     % save fits
     amplitudes(iTE,:) = nmrFit.nmrMix.amp;
@@ -277,7 +275,7 @@ for iTE = 1:nTE
     xlabel('Time (usec)')
     ylabel('RBC:barrierContamination ratio')
     linkaxes([ax1; ax2; ax3],'x');
-    xlim(ax3,[-1000 3000]);
+    xlim(ax3,[0 3000]);
     ylim(ax3,[0 5]);
     
     % Show component fits
@@ -287,14 +285,27 @@ for iTE = 1:nTE
     if(iTE == 1)
         axToLink = [axToLink ax3];
     end
-    individualSpectrums = nmrFit.nmrMix.calcComponentLorentzianCurves(nmrFit.f);
+    nSamples = (2^16-1);
+    dwell_time = nmrFit.t(2)-nmrFit.t(1);
+    fineFreq = linspace(-0.5,0.5,nSamples)/dwell_time;
     nComponents = length(nmrFit.nmrMix.amp);
+    scaledAmp = nmrFit.nmrMix.amp;
+    deltaT = TEs(iTE)-TEs(1);
+    for iComp = 1:nComponents
+        scaledAmp(iComp) = nmrFit.nmrMix.amp(iComp)*exp(deltaT*pi*nmrFit.nmrMix.fwhm(iComp));
+    end
+    scaledNmrMix = NMR_Mix(scaledAmp,nmrFit.nmrMix.freq,...
+        nmrFit.nmrMix.fwhm,nmrFit.nmrMix.phase);
+    
+    
+    individualSpectrums = scaledNmrMix.calcComponentLorentzianCurves(fineFreq(:));
+    
     
     for iComp=1:nDis
-        line(nmrFit.f,real(individualSpectrums(:,iComp)),'Color',colors(iComp,:),'Linestyle',linestyles{iTE},'Parent',ax3);
+        line(fineFreq,real(individualSpectrums(:,iComp)),'Color',colors(iComp,:),'Linestyle',linestyles{iTE},'Parent',ax3);
     end
     for iGas=1:nGas
-       line(nmrFit.f,real(individualSpectrums(:,nDis+iGas)),'Color',colors(3+iGas,:),'Linestyle',linestyles{iTE},'Parent',ax3);
+       line(fineFreq,real(individualSpectrums(:,nDis+iGas)),'Color',colors(3+iGas,:),'Linestyle',linestyles{iTE},'Parent',ax3);
     end
     
     if(iTE==nTE)
@@ -306,7 +317,6 @@ for iTE = 1:nTE
     hold off;
     
     % Show residuals at first TE
-    timeToShow = TEs(1);
     ax4 = subplot(nTE,2,2*(iTE-1)+2);
     axToLink = [axToLink ax4];  
     fittedSpectrum = nmrFit.nmrMix.calcSpectralDomainSignal(nmrFit.f);
@@ -325,7 +335,7 @@ for iTE = 1:nTE
     set(ax4,'XDir','reverse');
     title(ax4,['TE' num2str(iTE)]);
     linkaxes(axToLink,'x');
-    xlim(ax4,[-1125 250]);
+    xlim(ax4,[-725 250]);
     
     % Describe fit
     nmrFit.describe(gasFit.nmrMix.amp(1));

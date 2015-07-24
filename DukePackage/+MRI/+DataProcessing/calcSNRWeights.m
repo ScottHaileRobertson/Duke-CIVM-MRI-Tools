@@ -7,8 +7,7 @@ switch(weight_type)
 		weights = ones(size(pfile.data));
 	case 1
 		% Apply frame by frame weighting based on DC signal
-		weights = repmat(pfile.data(dc_sample_idx,:),[size(pfile.data,2) 1]);
+		weights = abs(repmat(pfile.data(dc_sample_idx,:),[size(pfile.data,1) 1]));
 	otherwise
 		error('Weight type not supported');
 end
-	
