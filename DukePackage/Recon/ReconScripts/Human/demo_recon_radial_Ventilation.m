@@ -58,23 +58,28 @@ radialDistance = MRI.Trajectories.Centric.Radial.calcRadialRay(pfile, delays, ou
 % 	% Only keep data during gradients on
 [radialDistance, pfile] = MRI.DataProcessing.removeNonReadoutSamples(radialDistance, pfile);   
 
+% Pick a reasonable DC sample
+dc_sample_idx = MRI.DataProcessing.calcDCsample(max(radialDistance,[],2));
+
+% Throw away all but last sample point
+pfile.data = pfile.data(dc_sample_idx:end,:);
+radialDistance = radialDistance(dc_sample_idx:end,:);
+pfile.rdb.rdb_hdr_frame_size = size(pfile.data,1);
+
 % Distribute rays onto 3d sphere
 traj = MRI.Trajectories.Centric.Distribute.calculate3dTrajectories(radialDistance, pfile);
 
 % Undo loopfactor
 [traj, pfile] = MRI.DataProcessing.undoloopfactor(traj, pfile);
 
-% Pick a reasonable DC sample
-% dc_sample_idx = MRI.DataProcessing.calcDCsample(max(radialDistance,[],2));
-
 % % Calculate flip angle
 % MRI.DataProcessing.calcFlipAngle(pfile, dc_sample_idx);
 
-% Calculate SNR weights
-% weights = MRI.DataProcessing.calcSNRWeights(pfile, dc_sample_idx, weight_type);
-
 % Calculate Maximum volume size for Nyquist
 MRI.DataProcessing.calculateNyquistMatrixSize(radialDistance, pfile);
+
+% Calculate SNR weights
+weights = MRI.DataProcessing.calcSNRWeights(pfile, dc_sample_idx, 1);
 
 % Vectorize data and traj for recon
 [traj, pfile] = MRI.DataProcessing.vectorizeDataAndTraj(traj, pfile);
@@ -85,19 +90,14 @@ MRI.DataProcessing.calculateNyquistMatrixSize(radialDistance, pfile);
 %% Reconstruct data
 % Choose kernel
 kernelObj = Recon.SysModel.Kernel.Gaussian(kernel.sharpness, kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.Triangle(kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.KaiserBessel(kernel.sharpness, kernel.extent, verbose);
-% kernelObj = Recon.SysModel.Kernel.Sinc(kernel.sharpness, kernel.extent, verbose);
 
 % Choose Proximity object
 proxObj = Recon.SysModel.Proximity.L2Proximity(kernelObj, verbose);
-% proxObj = Recon.SysModel.Proximity.L1Proximity(kernelObj, verbose);
 clear kernelObj;
 
 % Create System model
 systemObj = Recon.SysModel.MatrixSystemModel(traj, overgrid_factor, ...
     output_image_size, proxObj, verbose);
-% systemObj = Recon.SysModel.ExactSystemModel(traj, overgrid_factor, output_image_size, verbose);
 
 % Choose density compensation function (DCF)
 % dcfObj = Recon.DCF.Analytical3dRadial(traj, verbose);

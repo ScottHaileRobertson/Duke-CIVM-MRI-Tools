@@ -1,3 +1,11 @@
+function demo_dixon_recon_BHUTE(varargin)
+
+if(nargin < 1 | ~exist(varargin{1}))
+    disp('Select BHUTE pfile');
+    bhute_pfile = filepath('/home/scott/');
+else
+    bhute_pfile = varargin{1};
+end
 
 % Required parameters
 % % new 128^3
@@ -13,11 +21,6 @@ kernel.extent = 9*kernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 25;
-
-
-
-disp('Select BHUTE pfile');
-pfile_path = filepath('/home/scott/Desktop/')
 
 % Human Ventilation Parameters
 pfileOverride = GE.Pfile.Pfile();
@@ -39,7 +42,7 @@ delays.z_delay = 0.000;
 revision_override = [];  %Optional override if it can't be automatically read from the pfile
 
 %% Read Raw Pfile and process pfile
-pfile = GE.Pfile.read(pfile_path);
+pfile = GE.Pfile.read(bhute_pfile);
 
 % Convert from Pfile format
 pfile = convertLegacyPfile(pfile);
@@ -62,7 +65,7 @@ pfile = MRI.DataProcessing.removeBaselineViews(pfile);
 radialDistance = MRI.Trajectories.Centric.Radial.calcRadialRay(pfile, delays, output_image_size);
 
 % 	% Only keep data during gradients on
-[radialDistance, pfile] = MRI.DataProcessing.removeNonReadoutSamples(radialDistance, pfile);   
+[radialDistance, pfile] = MRI.DataProcessing.removeNonReadoutSamples(radialDistance, pfile);
 
 % Distribute rays onto 3d sphere
 traj = MRI.Trajectories.Centric.Distribute.calculate3dTrajectories(radialDistance, pfile);
@@ -123,7 +126,7 @@ reconVol = reconObj.reconstruct(pfile.data, traj);
 imslice(abs(reconVol));
 
 % save the result
-[pathstr,name,ext] = fileparts(pfile_path);
+[pathstr,name,ext] = fileparts(bhute_pfile);
 uteVol = reconVol;
 save([pathstr filesep() name '_bhute_recon.mat'],'uteVol');
 
@@ -163,7 +166,7 @@ CC_lung_idx2 = CC_slice(x_idx(2),y_idx(2));
 % Create initial mask
 lung_mask = (CC == CC_lung_idx1) | (CC == CC_lung_idx2);
 
-% Close lung to not include noise or air outside patient 
+% Close lung to not include noise or air outside patient
 disp('Performing closing operation...');
 justLung = zeros([size(lung_mask) 5]);
 radii = 0.75:0.25:3;
@@ -174,7 +177,7 @@ for iRadius = 1:nRadii
     
     [xgrid, ygrid, zgrid] = meshgrid(-ceil(radius):ceil(radius));
     ball = (sqrt(xgrid.^2 + ygrid.^2 + zgrid.^2) <= radius);
-
+    
     openedimage = imopen(lung_mask,ball);
     
     
@@ -206,3 +209,4 @@ save([pathstr filesep() name '_lungMask.mat'],'lung_mask');
 niiname = [pathstr filesep() name '_lungMask.nii'];
 nii = make_nii(abs(lung_mask));
 save_nii(nii,niiname);
+end

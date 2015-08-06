@@ -11,10 +11,10 @@ gas_idx = [4];
 % freq = [-35 -285 -393 -3840 -3870];
 % fwhm = [215 200 115 50 50];
 % phase = [0 0 0 0 0];
-amp = [1 1 1 1 1];
-freq = [-35 -285 -393 -3840 -3890 ];
-fwhm = [215 200 150 20 20];
-phase = [0 0 0 0 0];
+amp = [1 1 1 1];
+freq = [-35 -285 -393 -3840 ];
+fwhm = [215 200 150 20];
+phase = [0 0 0 0];
 
 % Find pfile
 pfile_path = filepath('/home/scott/Desktop')
@@ -63,8 +63,8 @@ fwhm = nmrFit.nmrMix.fwhm;
 phase = nmrFit.nmrMix.phase;
 
 % Upper bounds
-freq_halfRange = [25 25 25 5 5]; 
-fwhm_halfRange = [30 100 100 5 20];
+freq_halfRange = [25 25 25 5]; 
+fwhm_halfRange = [30 100 100 20];
 amp_ub = inf*ones(size(fwhm));
 freq_ub = nmrFit.nmrMix.freq + freq_halfRange;
 fwhm_ub = nmrFit.nmrMix.fwhm + fwhm_halfRange;

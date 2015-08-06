@@ -1,29 +1,59 @@
+function demo_dixon_phaseCorrect_splitRes(varargin)
 
-disp('Select BHUTE pfile');
-ute_path = filepath('/home/scott/Desktop/');
-[pathstr,name,ext] = fileparts(ute_path);
+if(nargin < 3 | ~isnumeric(varargin{1}) | ~exist(varargin{2}) | ~exist(varargin{3}))
+    RBC_barrier_spect = input('What was the RBC:barrier ratio from spectroscopy?:');
+    disp('Select BHUTE pfile');
+    bhute_pfile = filepath('/home/scott/Desktop/')
+    [pathstr,name,ext] = fileparts(bhute_pfile);
+    disp('Select Dixon pfile');
+    dixon_pfile = filepath(pathstr);
+else
+    RBC_barrier_spect = varargin{1};
+    bhute_pfile = varargin{2};
+    dixon_pfile = varargin{3};
+end
+
+[pathstr,name,ext] = fileparts(bhute_pfile);
 load([pathstr filesep() name '_lungMask.mat']);
-
-disp('Select dixon pfile');
-dix_path = filepath('/home/scott/Desktop/');
-[pathstr,name,ext] = fileparts(dix_path);
+[pathstr,name,ext] = fileparts(dixon_pfile);
 load([pathstr filesep() name '_gas_recon.mat']);
 load([pathstr filesep() name '_dissolved_recon.mat']);
 
+pfile = GE.Pfile.read(dixon_pfile);
+displayPfileHeaderInfo(dixon_pfile);
 
-%% The calculated RBC:barrier ratio
-RBC_barrier_spect =  0.20475;
+
+enforceInLungOnly = 1;
+
+% Create better lung mask from ventilated region.
+lungMask = abs(dissolvedVol);
+lungMask = lungMask/max(lungMask(:));
+lungMask = lungMask>0.1;
+
+radius = 1;
+[xgrid, ygrid, zgrid] = meshgrid(-radius:radius);
+ball = (sqrt(xgrid.^2 + ygrid.^2 + zgrid.^2) <= radius);
+lung_mask = imdilate(lung_mask,ball);
+lungMask = lungMask & lung_mask;
 
 %% Finds the phase offset to give the correct spectroscopy ratio
 desired_angle = atan2(RBC_barrier_spect,1);
-netVec = sum(dissolvedVol(lung_mask));
+if(enforceInLungOnly)
+    netVec = sum(dissolvedVol(lungMask));
+else
+    netVec = sum(dissolvedVol(:));
+end
 current_angle_complete = atan2(imag(netVec),real(netVec));
 delta_angle_complete = desired_angle-current_angle_complete;
 
 % % Check that angle gives correct RBC:barrier ratio
-% rotVol = dissolvedVol.*exp(1i*delta_angle_complete);
-% finalVec = sum(rotVol(:));
-% rbc_barrier_ratio_check = imag(finalVec)/real(finalVec)
+rotVol = dissolvedVol.*exp(1i*delta_angle_complete);
+if(enforceInLungOnly)
+    finalVec = sum(rotVol(lungMask));
+else
+    finalVec = sum(rotVol(:));
+end
+rbc_barrier_ratio_check1 = imag(finalVec)/real(finalVec)
 
 %% Correct for B0 inhomogeneities
 % Itterate until mean phase is zero
@@ -31,12 +61,15 @@ gas2 = gasVol;
 iterCount = 0;
 meanphase = inf;
 while((abs(meanphase) > 1E-7))
-    if(iterCount > 10)
+    if(iterCount > 20)
+        warning('Could not get zero mean phase within 10 iterations...');
+    end
+    if(iterCount > 100)
         error('Could not get zero mean phase within 10 iterations...');
     end
-    iterCount = iterCount + 1
+    iterCount = iterCount + 1;
     diffphase = angle(gas2);
-    meanphase = mean(diffphase(lung_mask(:)));
+    meanphase = mean(diffphase(lungMask(:)));
     gas2 = gas2*exp(-1i*meanphase);
 end
 diffphase = angle(gas2);
@@ -44,26 +77,56 @@ diffphase = angle(gas2);
 % % remove B0 inhomogeneities
 dissolvedVol = dissolvedVol.*exp(1i*(delta_angle_complete-diffphase));
 
-% Create lung mask from ventilated region.
-lungMask = abs(dissolvedVol);
-lungMask = lungMask/max(lungMask(:));
-lungMask = lungMask>0.2;
+if(enforceInLungOnly)
+    finalVec2 = sum(dissolvedVol(lungMask));
+else
+    finalVec2 = sum(dissolvedVol(:));
+end
+rbc_barrier_ratio_check2 = imag(finalVec2)/real(finalVec2)
+
+rbc_vol = imag(dissolvedVol);
+barrier_vol = real(dissolvedVol);
 
 % Force positiveness and scale 
-rbc_vol = imag(dissolvedVol);
-rbc_vol(rbc_vol<0) = 0;
-barrier_vol = real(dissolvedVol);
-barrier_vol(barrier_vol<0) = 0;
-maxVal = max(max(rbc_vol(:)),max(barrier_vol(:)));
+% rbc_vol(rbc_vol<0) = 0;
+% barrier_vol(barrier_vol<0) = 0;
+if(enforceInLungOnly)
+    rbc_barrier_ratio_check3 = sum(rbc_vol(lungMask))/sum(barrier_vol(lungMask))
+else
+    rbc_barrier_ratio_check3 = sum(rbc_vol(:))/sum(barrier_vol(:))
+end
+
+
+maxVal = max(barrier_vol(:));
 rbc_vol = rbc_vol/maxVal;
 barrier_vol = barrier_vol/maxVal;
 
+
 % Calculate RBC/Barrier only where there is barrier signal
-barrier_thresh = 0.01*max(barrier_vol(:));
-signalMask = barrier_vol>barrier_thresh;
+barrier_thresh = 0.1*max(abs(barrier_vol(:)));
+signalMask = abs(barrier_vol)>barrier_thresh;
 rbc_to_barrier = zeros(size(barrier_vol));
-rbc_to_barrier(signalMask) = rbc_vol(signalMask)./barrier_vol(signalMask);
-rbc_to_barrier(~lungMask)=0;
+rbc_to_barrier(lungMask) = rbc_vol(lungMask)./barrier_vol(lungMask);
+% rbc_to_barrier(~lungMask)=0;
+
+inLungVox = sum(sum(lungMask,2),3);
+rbc_lung = rbc_vol;
+rbc_lung(~lungMask) = 0;
+barrier_lung = barrier_vol;
+barrier_lung(~lungMask) = 0;
+rbc_proj = sum(sum(rbc_lung,2),3);
+bar_proj = sum(sum(barrier_lung,2),3);
+rbc2bar_proj = rbc_proj./bar_proj;
+rbc2bar_proj(inLungVox < 50) = 0;
+
+
+figure();
+subplot(2,1,1)
+plot(40*(1:64)/64,rbc2bar_proj)
+subplot(2,1,2);
+plot(40*(1:64)/64,inLungVox,'.')
+ylabel('RBC:barrier');
+xlabel('S/I Position (cm)');
 
 imslice(rbc_vol,'RBC')
 imslice(barrier_vol,'barrier')

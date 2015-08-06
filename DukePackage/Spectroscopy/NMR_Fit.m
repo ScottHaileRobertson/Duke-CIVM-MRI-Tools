@@ -32,7 +32,7 @@ classdef NMR_Fit
             end
             
             % Apply linebroadening
-            obj.timeDomainSignal = time_domain_signal.*exp(-obj.lineBroadening*obj.t);
+            obj.timeDomainSignal = time_domain_signal(:).*exp(-2*pi*obj.lineBroadening*obj.t);
             
             % Calculate spectrum
             dwell_time = (obj.t(2)-obj.t(1));
@@ -170,33 +170,31 @@ classdef NMR_Fit
                 obj.nmrMix.fwhm; obj.nmrMix.phase];
             
             fitoptions = optimoptions('lsqcurvefit');
-            %             fitoptions.Display = 'iter-detailed';
-            %             fitoptions.Display = 'final-detailed';
+%                         fitoptions.Display = 'iter-detailed';
+%                         fitoptions.Display = 'final-detailed';
             fitoptions.Display = 'off';
-            fitoptions.MaxIter = 1000;
+            fitoptions.MaxIter = 10000;
             fitoptions.TolFun=1E-900;
-            fitoptions.TolX = 1E-8;
+            fitoptions.TolX = 1E-15;
             fitoptions.FinDiffType = 'central';
             fitoptions.Algorithm = 'trust-region-reflective';
             fitoptions.MaxFunEvals = 5000;
 %             if(isempty(obj.lb) & (obj.ub))
-%                 fitFunc = @(t)sum(Mix.calcTimeDomainSignal(t),2);
-%                 fit_params = lsqcurvefit(@obj.calcTimeSigRealImag,guess,obj.t(:),...
-%                     [real(obj.timeDomainSignal(:)),imag(obj.timeDomainSignal(:))],...
-%                     obj.lb(:),obj.ub(:),fitoptions);
-%                 
-%             else
-                fit_params = lsqcurvefit(@obj.calcTimeSigRealImag,guess,obj.t(:),...
+                fit_params = lsqcurvefit(@obj.calcConstrainedTimeSig,guess,obj.t(:),...
                     [real(obj.timeDomainSignal(:)),imag(obj.timeDomainSignal(:))],...
                     obj.lb(:),obj.ub(:),fitoptions);
                 
-                % Separate out the components from the matrix
-                fit_vec = fit_params(1,:).*exp(1i*pi*fit_params(4,:)/180);
-                fit_amp = abs(fit_vec);
-                fit_freq = fit_params(2,:);
-                fit_fwhm = fit_params(3,:);
-                fit_phase = angle(fit_vec)*180/pi;
-%             end      
+%             else
+%                 fit_params = lsqcurvefit(@obj.calcUnconstrainedTimeSig,guess,obj.t(:),...
+%                     obj.timeDomainSignal(:),[],[],fitoptions);
+%             end
+                
+            % Separate out the components from the matrix
+            fit_vec = fit_params(1,:).*exp(1i*pi*fit_params(4,:)/180);
+            fit_amp = abs(fit_vec);
+            fit_freq = fit_params(2,:);
+            fit_fwhm = fit_params(3,:);
+            fit_phase = angle(fit_vec)*180/pi;
         end
         
         function obj = fitTimeDomainSignal(obj)
@@ -210,14 +208,22 @@ classdef NMR_Fit
             obj.nmrMix = obj.nmrMix.resetComponents(fit_amp, fit_freq, fit_fwhm, fit_phase);
         end
         
-        function realImagSig = calcTimeSigRealImag(obj,nmr_params,t)
+        function complexSig = calcUnconstrainedTimeSig(obj,nmr_params,t)
             % A function used in fitting to allow constraints for complex
             % fitting. This is the same as calling calcTimeDomainSignal of
             % the NMR_Mix object, only it separates the real and imaginary
             % parts to allow for constraints to be used in fitting.
             tmpNmrMix = NMR_Mix(nmr_params(1,:), nmr_params(2,:), ...
                 nmr_params(3,:), nmr_params(4,:));
-            complexSig = sum(tmpNmrMix.calcTimeDomainSignal(t),2);
+            complexSig = tmpNmrMix.calcTimeDomainSignal(t);
+        end
+        
+        function realImagSig = calcConstrainedTimeSig(obj,nmr_params,t)
+            % A function used in fitting to allow constraints for complex
+            % fitting. This is the same as calling calcTimeDomainSignal of
+            % the NMR_Mix object, only it separates the real and imaginary
+            % parts to allow for constraints to be used in fitting.
+            complexSig = obj.calcUnconstrainedTimeSig(nmr_params,t);
             realImagSig = [real(complexSig) imag(complexSig)];
         end
         

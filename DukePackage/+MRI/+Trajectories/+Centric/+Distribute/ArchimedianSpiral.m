@@ -12,7 +12,7 @@ function traj = calcArchimedianSpiralTrajectories(radialDistance, header)
 % Read relavent info from header
 nframes = header.rdb.rdb_hdr_user20;
 primeplus = header.rdb.rdb_hdr_user23;
-pi_float = single(pi);
+pi_float = single(3.14159265358979323846);
 
 % nframes=floor(nframes/2)*2+1; %Must have odd number of frames
 cview=floor(nframes/2)+1;     %Center frame 

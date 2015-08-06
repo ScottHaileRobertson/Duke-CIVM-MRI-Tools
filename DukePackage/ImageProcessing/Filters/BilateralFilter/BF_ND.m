@@ -49,7 +49,7 @@ end
 
 % Precalculate 1/r_sig^2
 inv_double_rsig_sqr = 1./(2*r_sig.^2);
-parfor iMesh = 1:nMesh
+for iMesh = 1:nMesh
     disp(['Bilateral filtering' num2str(iMesh) '/' num2str(nMesh)]);
 
 	% Create shifted volume

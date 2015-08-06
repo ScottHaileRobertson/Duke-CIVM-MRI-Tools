@@ -1,5 +1,14 @@
-%%3peaks
-%   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+function meanRbc2barrier = demo_dixon_phase_calibration(varargin)
+
+if(nargin < 1 | ~exist(varargin{1}))
+    disp('Select Phase Calibration pfile');
+    phaseCal_pfile = filepath('/home/scott/Public/data/')
+else
+    phaseCal_pfile = varargin{1};
+end
+
+% %%3peaks
+% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
 dis_fit_guess = [
     1           -100            136          0; % Component #1
     1           -348           130          0; % Component #3
@@ -12,8 +21,8 @@ rbc_te90_idx = 1;
 barrier_te90_idx = 2;
 gas_idx = 3;
 
-% %%4peaks
-% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+%%4peaks
+%   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
 % dis_fit_guess = [
 %     1           -28            190          0; % Component #1
 %     1           -290           200          0; % Component #2
@@ -74,12 +83,8 @@ colors = [     0.8500    0.3250    0.0980
     0.6350    0.0780    0.1840];
 linestyles = {'-','--','-.',':'};
 
-% Get Pfile
-pfile_path = filepath('/home/scott/Public/data/')
-% pfile_path = filepath('/home/scott/Public/data/20150722/')
-
 %% Read Raw Pfile and process pfile
-pfile = GE.Pfile.read(pfile_path);
+pfile = GE.Pfile.read(phaseCal_pfile);
 displayPfileHeaderInfo(pfile);
 
 % Check for overranging
@@ -415,11 +420,12 @@ te90_usec = round(te90'*1E6)
 rbcToBarrierRatio = barrier_ratio(:,1)'
 
 % Sumamrize
+meanRbc2barrier = mean(abs(barrier_ratio(:,rbc_te90_idx)));
 disp(['TE_ghetto' '=' num2str(te_ghetto*1E6)]);
 disp(['TE90=' num2str(mean_te90*1E6) 'usec (' num2str(stdev_te90*1E6) 'usec stdev)']);
 disp(['Flip angle ~' num2str(flip_angle) ' (' num2str(flip_err) ' error)']);
-disp(['mean RBC:Barrier = ' num2str(mean(abs(barrier_ratio(:,rbc_te90_idx)))) ' (' num2str(std(abs(barrier_ratio(:,rbc_te90_idx)))) ' std dev)']);
+disp(['mean RBC:Barrier = ' num2str(meanRbc2barrier) ' (' num2str(std(abs(barrier_ratio(:,rbc_te90_idx)))) ' std dev)']);
 
 te_ghetto = round(te_ghetto*1E6)
 rbc_to_crap
-
+end
