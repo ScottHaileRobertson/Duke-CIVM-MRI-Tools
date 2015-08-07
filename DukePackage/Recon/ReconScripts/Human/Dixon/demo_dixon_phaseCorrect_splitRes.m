@@ -88,8 +88,8 @@ rbc_vol = imag(dissolvedVol);
 barrier_vol = real(dissolvedVol);
 
 % Force positiveness and scale 
-% rbc_vol(rbc_vol<0) = 0;
-% barrier_vol(barrier_vol<0) = 0;
+rbc_vol(rbc_vol<0) = 0;
+barrier_vol(barrier_vol<0) = 0;
 if(enforceInLungOnly)
     rbc_barrier_ratio_check3 = sum(rbc_vol(lungMask))/sum(barrier_vol(lungMask))
 else
