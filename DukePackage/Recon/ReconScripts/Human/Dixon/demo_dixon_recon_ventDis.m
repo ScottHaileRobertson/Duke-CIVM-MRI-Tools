@@ -39,7 +39,7 @@ pfileOverride = GE.Pfile.Pfile();
 % pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 % pfileOverride.rdb.rdb_hdr_user44 = 1.024; % pw_gxw/1000
 % pfileOverride.rdb.rdb_hdr_user22 = 0.1325; %toff
-% % pfileOverride.rdb.rdb_hdr_user32 = 1;
+% % pfileOverride.rdb.rdb_hdr_user32 = 1;  % for 46
 
 % For new 128^3
 output_image_sizeg = 64*[1 1 1];
@@ -131,12 +131,9 @@ MRI.DataProcessing.calculateNyquistMatrixSize(radialDistanceg, gas_pfile);
 
 % Throw away first 50 frames of dissolved data to remove downstream mag
 downstream_magFrames = 50;
-% dissolved_pfile.data = dissolved_pfile.data(:,(downstream_magFrames+1):end);
-% dissolved_pfile.rdb.rdb_hdr_user20 = size(dissolved_pfile.data,2); % Update header
-% trajd = trajd(:,(downstream_magFrames+1):end,:);
-% gas_pfile.data = gas_pfile.data(:,(downstream_magFrames+1):end);
-% gas_pfile.rdb.rdb_hdr_user20 = size(gas_pfile.data,2); % Update header
-% trajg = trajg(:,(downstream_magFrames+1):end,:);
+dissolved_pfile.data = dissolved_pfile.data(:,(downstream_magFrames+1):end);
+dissolved_pfile.rdb.rdb_hdr_user20 = size(dissolved_pfile.data,2); % Update header
+trajd = trajd(:,(downstream_magFrames+1):end,:);
 
 % Vectorize data and traj for recon
 [trajd, dissolved_pfile] = MRI.DataProcessing.vectorizeDataAndTraj(trajd, dissolved_pfile);

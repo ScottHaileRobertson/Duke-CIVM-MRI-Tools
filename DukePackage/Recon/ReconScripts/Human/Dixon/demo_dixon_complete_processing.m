@@ -15,7 +15,7 @@ meanRbc2barrier = demo_dixon_phase_calibration(phaseCal_pfile);
 demo_dixon_recon_ventDis(dixon_pfile);
 
 % Reconstruct BHUTE and make lung mask 
-demo_dixon_recon_BHUTE(bhute_pfile)
+demo_dixon_recon_BHUTE(bhute_pfile, dixon_pfile)
 
 % Perform dixon decomposition
 demo_dixon_phaseCorrect_splitRes(meanRbc2barrier, bhute_pfile, dixon_pfile)

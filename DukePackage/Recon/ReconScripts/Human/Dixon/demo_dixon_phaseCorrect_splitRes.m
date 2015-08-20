@@ -117,14 +117,24 @@ barrier_lung(~lungMask) = 0;
 rbc_proj = sum(sum(rbc_lung,2),3);
 bar_proj = sum(sum(barrier_lung,2),3);
 rbc2bar_proj = rbc_proj./bar_proj;
-rbc2bar_proj(inLungVox < 50) = 0;
+withinLung = inLungVox > 50;
 
+% Should read fov/matrix size from header
+dixonPfile = GE.Pfile.read(dixon_pfile);
+fov = dixonPfile.rdb.rdb_hdr_fov;
+matSize = size(barrier_vol,1);
+SI_units = fov*(1:matSize)/matSize;
+SI_units_inLung = SI_units(withinLung);
+meanSI = mean(SI_units_inLung);
+SI_units_inLung = SI_units_inLung - meanSI; % make zero center
+SI_units = SI_units - meanSI;
+rbc2bar_proj_inLung = rbc2bar_proj(withinLung);
 
 figure();
 subplot(2,1,1)
-plot(40*(1:64)/64,rbc2bar_proj)
+plot(SI_units_inLung,rbc2bar_proj_inLung);
 subplot(2,1,2);
-plot(40*(1:64)/64,inLungVox,'.')
+plot(SI_units_inLung,inLungVox(withinLung),'.')
 ylabel('RBC:barrier');
 xlabel('S/I Position (cm)');
 
@@ -143,3 +153,8 @@ save_nii(nii,[pathstr filesep() name '_barrier.nii']);
 save([pathstr filesep() name '_rbc2barrier.mat'],'rbc_to_barrier');
 nii = make_nii(rbc_to_barrier);
 save_nii(nii,[pathstr filesep() name '_rbc2barrier.nii']);
+
+projected = struct();
+projected.rbc2barrier = rbc2bar_proj_inLung;
+projected.si_position = SI_units_inLung;
+save([pathstr filesep() name '_projected_SI_Ratios.mat'],'projected');

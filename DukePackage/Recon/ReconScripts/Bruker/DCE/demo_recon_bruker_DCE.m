@@ -8,22 +8,14 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Fast (for quick quality control) Reconstruction parameters
-scale = 0.5; % Scales the output matrix size (changes resolution)
+%% Slow (but decent) Reconstruction parameters
+scale = 1;
 oversampling = 1; % Use at least 2. Turn "crop" off on reconObject, then increase this until you dont see signal at the edge of FOV, then turn "crop" back on and use that oversampling
-sharpness = 0.3*scale;  % This is a key parameter that tradesoff SNR and resolution (making sharpness smaller will blurr the object, but increase SNR and vice versa)extent = 6*sharpness;
+sharpness = 0.3;  % This is a key parameter that tradesoff SNR and resolution (making sharpness smaller will blurr the object, but increase SNR and vice versa)
+extent = 9*sharpness; % 9 is a good value
 verbose = 0;
-nPipeIter = 2; % Use 3-15 for option 1, lots more (~75) for iterative recon. This should scale recon time linearly(ish)
-crop = 1;
-
-% %% Slow (but decent) Reconstruction parameters
-% scale = 1;
-% oversampling = 2; % Use at least 2. Turn "crop" off on reconObject, then increase this until you dont see signal at the edge of FOV, then turn "crop" back on and use that oversampling
-% sharpness = 0.21;  % This is a key parameter that tradesoff SNR and resolution (making sharpness smaller will blurr the object, but increase SNR and vice versa)
-% extent = 9*sharpness; % 9 is a good value
-% verbose = 0;
-% nPipeIter = 5; % Use 3-15 for option 1, lots more (~75) for iterative recon. This should scale recon time linearly(ish)
-% crop = 1;
+nPipeIter = 3; % Use 3-15 for option 1, lots more (~75) for iterative recon. This should scale recon time linearly(ish)
+crop = 0;
 
 
 %% Find directory containing all information
@@ -40,10 +32,11 @@ samplesPerAcq = nPts*nRaysPerKey*nKeys;
 unscaled_size = 2*nPts*[1 1 1];
 scaled_output_size = round(scale*unscaled_size);
 scale = scaled_output_size(1)/unscaled_size(1);
+overgrid_mat_size = scaled_output_size*oversampling;
 if(crop)
     reconMatSize = scaled_output_size;
 else
-    reconMatSize = scaled_output_size*oversampling;
+    reconMatSize = overgrid_mat_size;
 end
 
 %% Sliding window parameters
@@ -69,14 +62,14 @@ traj = reshape(traj,[3 nPts nRaysPerKey nKeys]); % put trajectory into matrix fo
 traj = permute(traj,[2 3 4 1]); % Put [kx,ky,kz] dimmension last
 traj = reshape(traj,[nPts nRaysPerKey*nKeys 3])/scale; % vectorize keys and Acq
 
-% % Throw away any aliased data
-aliased_Pts = any(any(abs(traj)>=0.5,3),2);
-nPts = sum(~aliased_Pts);
-traj = traj(1:nPts,:,:);
-data = data(1:nPts,:,:,:);
-keysPerWindow = nPts*nRaysPerKey*13; % 13 keys of data 
-windowStep = nPts*nRaysPerKey*1; % Step by one key of data
-samplesPerAcq = nPts*nRaysPerKey*nKeys;
+% % % Throw away any aliased data
+% aliased_Pts = any(any(abs(traj)>=0.5,3),2);
+% nPts = sum(~aliased_Pts);
+% traj = traj(1:nPts,:,:);
+% data = data(1:nPts,:,:,:);
+% keysPerWindow = nPts*nRaysPerKey*13; % 13 keys of data 
+% windowStep = nPts*nRaysPerKey*1; % Step by one key of data
+% samplesPerAcq = nPts*nRaysPerKey*nKeys;
 
 % Vectorize data and traj
 traj = reshape(traj,[nPts*nRaysPerKey*nKeys 3]); % vectorize all but [kx,ky,kz] dimmension
@@ -102,68 +95,79 @@ startMod = mod(windowStartIdxs-1,samplesPerAcq)+1;
 [uniqueStarts,ia,ic] = unique(startMod); % find all unique trajectories
 [uniqueCounts, uniqueEdges] = histcounts(ic,length(uniqueStarts));
 
+% Presort traj so parfor works...
+shit = struct;
 nSysMat = length(uniqueStarts);
-tmpVol = zeros(reconMatSize);
-
+% shit.deltaInput = ones([keysPerWindow 1]);
+% deapVol = zeros(overgrid_mat_size);
+shit.tmpVol = zeros(overgrid_mat_size);
 disp(['Completed 0/' num2str(nSysMat) ' traj subsets']);
+shit.windowTraj = zeros([keysPerWindow 3]);
+
+
 for iSysMat = 1:nSysMat % This can be done in parallel, but takes LOTS of memory
-    % Make a reconObj for each window
-    windowTraj = squeeze(traj(mod(uniqueStarts(iSysMat)+[0:(keysPerWindow-1)]-1,samplesPerAcq)+1,:));
-    
-    % Construct system model
+    % Make a trajectory for each window
+    shit.windowTraj = squeeze(traj(mod(uniqueStarts(iSysMat)+[0:(keysPerWindow-1)]-1,samplesPerAcq)+1,:));
+        
+    % Construct system model for this trajectory
     disp('   Creating System model');
-    systemObj = Recon.SysModel.MatrixSystemModel(windowTraj, oversampling, ...
-        scaled_output_size, proxObj, verbose);   
+    shit.systemObj = Recon.SysModel.MatrixSystemModel(shit.windowTraj, oversampling, ...
+        scaled_output_size, proxObj, verbose);   % This can be stored
     
-    % Option 1: LSQR recon + Pipe DCF (very fast because each coil uses same DCF weights)
+    % Calculate (Pipe) Iterative Density Compensation weights
     disp('   Calculating DCF');
-    dcfObj = Recon.DCF.Iterative(systemObj, nPipeIter, verbose);
-    reconObj = Recon.ReconModel.LSQGridded(systemObj, dcfObj, verbose);
-    reconObj.deapodize = 1;
+    shit.dcfObj = Recon.DCF.Iterative(shit.systemObj, nPipeIter, verbose); % This can be stored
+     
+%     % Compute deapodization volume for this traj
+%     disp('   Calculating Deapodization');
+%     deapVol = systemObj'*(shit.deltaInput.*dcfObj.dcf);
+%     deapVol = reshape(full(deapVol),overgrid_mat_size); % make unsparse;
+%     deapVol = ifftshift(ifftn(deapVol));
     
-    %     % Option 2: Iterative recon (slower as it iterahappen for each
-%     % coil
-%     reconObj = Recon.ReconModel.ConjugateGradient(systemObj, nPipeIter, verbose);
-    
-    % Tell recon to crop image to prescribed FOV 
-    clear systemObj dcfObj; % free up memory
-    reconObj.crop = crop; 
-    
-    % Reconstruct all data that share this trajectory
-    sameStartIdx = find(ic==iSysMat);
+    % Create a data matrix of all repetitions of this trajectory
+    sameStartIdx = find(ic==iSysMat); 
     nSameStart = length(sameStartIdx);
-    disp(['   Reconstructed 0/' num2str(nSameStart) ' of repeated traj']);
-    for iSameStart = 1:nSameStart % this can be done in parallel, but wont help as much as making the first loop parallel
+    shit.dataIdxRep = repmat(windowStartIdxs(sameStartIdx),[keysPerWindow 1]) + repmat([0:(keysPerWindow-1)]',[1 nSameStart]);
+    shit.windowData = reshape(data(shit.dataIdxRep(:),:),[keysPerWindow nSameStart*nCoils]);
+    shit.dcfRep = repmat(shit.dcfObj.dcf,[1 nSameStart*nCoils]);
+%     clear dcfObj;
+    
+    % Grid all data that share this trajectory
+    disp(['   Gridding (' num2str(nSameStart) ' time points)x(' num2str(nCoils) ' coil channels) datasets...']);
+    shit.windowData = shit.windowData.*shit.dcfRep;
+    shit.ATrans = shit.systemObj.ATrans;
+    shit.windowRecon = shit.ATrans*shit.windowData; % We will get a huge speek boost if you can get this to take more advantage of CPU
+    
+    % Perform SOS across coil channels;
+    disp(['   Performing IFFT and SOS on ' num2str(nSameStart) ' time points and ' num2str(nCoils) ' coils...']);
+    shit.windowRecon = reshape(shit.windowRecon, [size(shit.systemObj.A,2) nSameStart nCoils]);
+%     clear systemObj;
+
+    for iSameStart = 1:nSameStart 
+        % Figure out this windows index
         iWindow = sameStartIdx(iSameStart);
-        sampleIdx = windowStartIdxs(iWindow) + [0:(keysPerWindow-1)];
         
-        % Recon each coil in a SOS sense (parallel recon like SENSE/GRAPPA etc
-        % would be smarter)
-        for iCoil=1:nCoils
-            disp(['      Reconstructed coil' num2str(iCoil) '/' num2str(nCoils)]);
-            coilData = squeeze(data(sampleIdx,iCoil));
+        for iCoil = 1:nCoils
+            % Reconstruct image domain with IFFT
+            shit.tmpVol = reshape(full(shit.windowRecon(:,iSameStart, iCoil)),overgrid_mat_size); % make unsparse;
+            shit.tmpVol = ifftshift(ifftn(shit.tmpVol));
             
-            % Compute SOS recon
-            tmpVol = tmpVol + abs(reconObj.reconstruct(coilData, windowTraj)).^2;%;
+            % Accumulate SOS
+            slidingWindowReconVol(:,:,:,iWindow) = slidingWindowReconVol(:,:,:,iWindow) + shit.tmpVol.^2;%(shit.tmpVol.*conj(shit.tmpVol));
+            disp(['      Finished Coil ' num2str(iCoil) '/' num2str(nCoils)]);
         end
-        
-        % Take square root for SOS
-        tmpVol = sqrt(tmpVol);
-        
-        % Save volume
-        slidingWindowReconVol(:,:,:,iWindow) = tmpVol;
+                
+        % Finish SOS
+        slidingWindowReconVol(:,:,:,iWindow) = sqrt(slidingWindowReconVol(:,:,:,iWindow));
         
         % Show some progress
-        disp(['   Completed ' num2str(iSameStart) '/' num2str(nSameStart) ' of repeated traj']);
+        disp(['   Completed ' num2str(iSameStart) '/' num2str(nSameStart) ' time Points']); 
     end
-    clear reconObj windowTraj; % free up memory
-    
+     
     % Show some progress
     disp(['Completed ' num2str(iSysMat) '/' num2str(nSysMat) ' traj subsets']);
 end
-clear data traj windowStartIdxs kernelObj proxObj; % clean up
-reconTime = toc/60
-
+reconTime = toc
 
 % Show the reconstruction
-imslice(slidingWindowReconVol,'Sliding window');
+imslice(abs(slidingWindowReconVol),'Sliding window');

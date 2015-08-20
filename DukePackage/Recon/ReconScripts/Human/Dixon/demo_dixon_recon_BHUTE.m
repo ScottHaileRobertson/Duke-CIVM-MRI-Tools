@@ -7,6 +7,13 @@ else
     bhute_pfile = varargin{1};
 end
 
+if(nargin < 2)
+    disp('Select dixon pfile');
+    dixon_pfile = filepath('/home/scott/');
+else
+    dixon_pfile = varargin{2};
+end
+
 % Required parameters
 % % new 128^3
 % output_image_size = 64*[1 1 1];
@@ -163,17 +170,31 @@ CC_slice = calcImageSlice(Volume(CC), slice_idx, slice_dim);
 CC_lung_idx1 = CC_slice(x_idx(1),y_idx(1));
 CC_lung_idx2 = CC_slice(x_idx(2),y_idx(2));
 
+% Calculate mask from ventilation volume
+[pathstr,name,ext] = fileparts(dixon_pfile);
+load([pathstr filesep() name '_gas_recon.mat']);
+[ventMask, cluster_center] = kmeans(abs(gasVol(:)),2,'distance','sqEuclidean', ...
+    'Replicates',2);
+ventMask = reshape(ventMask,dims);
+vent_slice = calcImageSlice(Volume(ventMask), slice_idx, slice_dim);
+vent_lung_idx1 = vent_slice(x_idx(1),y_idx(1));
+vent_lung_idx2 = vent_slice(x_idx(2),y_idx(2));
+ventMask = (ventMask(:)==vent_lung_idx1) | (ventMask(:)==vent_lung_idx2);
+ventMask = reshape(ventMask,dims);
+ventVolume = sum(ventMask(:));
+
 % Create initial mask
 lung_mask = (CC == CC_lung_idx1) | (CC == CC_lung_idx2);
 
 % Close lung to not include noise or air outside patient
 disp('Performing closing operation...');
-justLung = zeros([size(lung_mask) 5]);
-radii = 0.75:0.25:3;
-nRadii = length(radii);
-for iRadius = 1:nRadii
-    iRadius
-    radius = radii(iRadius);
+lung_closed = zeros([size(lung_mask)]);
+NUM = 1;
+radius = 0.5;
+delta_radius = 0.25;
+bigVolumeDifference = true;
+while((NUM < 2) | (bigVolumeDifference)) %Perform until the background disappears
+    radius = radius + delta_radius;
     
     [xgrid, ygrid, zgrid] = meshgrid(-ceil(radius):ceil(radius));
     ball = (sqrt(xgrid.^2 + ygrid.^2 + zgrid.^2) <= radius);
@@ -187,13 +208,13 @@ for iRadius = 1:nRadii
     CC2_lung_idx2 = CC2_slice(x_idx(2),y_idx(2));
     
     % Create mask
-    justLung(:,:,:,iRadius) = (CC2 == CC2_lung_idx1) | (CC2 == CC2_lung_idx2);
+    lung_closed = (CC2 == CC2_lung_idx1) | (CC2 == CC2_lung_idx2);
+    
+    closedVolume = sum(lung_closed(:));
+    bigVolumeDifference = abs(1-(ventVolume/closedVolume)) > 0.4;
+    
+    test = 1;
 end
-h = imslice(justLung);
-disp('Scroll through dim4 until only lung apears, then press enter.');
-pause;
-gui = getappdata(h);
-lung_closed = squeeze(justLung(:,:,:,gui.UsedByGUIData_m.dim_slider.Value));
 lung_mask2 = lung_mask & lung_closed;
 
 % erode just to make sure we dont get any air phase...
