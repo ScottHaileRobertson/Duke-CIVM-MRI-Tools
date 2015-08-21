@@ -231,4 +231,3 @@ fprintf('reconstruct in %f minutes\n',reconTime);
 data_buffer.data=slidingWindowReconVol;
 % Show the reconstruction
 % imslice(slidingWindowReconVol,'Sliding window');
-\
