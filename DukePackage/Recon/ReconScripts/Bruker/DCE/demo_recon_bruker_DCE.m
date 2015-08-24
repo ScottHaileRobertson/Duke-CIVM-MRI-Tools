@@ -8,18 +8,26 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+code_path='/Users/james/Desktop/DCE_proto';
+run([code_path '/Duke-CIVM-MRI-Tools/setup.m']);
+run([code_path '/GE-MRI-Tools/setup.m']);
+run([code_path '/Non-Cartesian-Reconstruction/setup.m'])
+u_dir='/Users/james/';
+
 %% Slow (but decent) Reconstruction parameters
 scale = 1;
 oversampling = 1; % Use at least 2. Turn "crop" off on reconObject, then increase this until you dont see signal at the edge of FOV, then turn "crop" back on and use that oversampling
 sharpness = 0.3;  % This is a key parameter that tradesoff SNR and resolution (making sharpness smaller will blurr the object, but increase SNR and vice versa)
 extent = 9*sharpness; % 9 is a good value
+
 verbose = 0;
 nPipeIter = 3; % Use 3-15 for option 1, lots more (~75) for iterative recon. This should scale recon time linearly(ish)
 crop = 0;
 
 
 %% Find directory containing all information
-reconDir = '/home/scott/Desktop/B03180/';
+reconDir = [u_dir '/Desktop/B03180/'];
 
 %% Read the header file to get scan info
 % This could be done nicer by reading the header, etc. - I was lazy and hard-coded
@@ -44,7 +52,7 @@ keysPerWindow = nPts*nRaysPerKey*13; % 10 keys of data (I like 10-15 for this da
 windowStep = nPts*nRaysPerKey*1; % Step by one key of data
 
 %% Read in fid data, put in 
-dataFile = '/home/scott/Desktop/BrukerRecon/B03180/fid';
+dataFile = [ u_dir  '/Desktop/B03180/fid'];
 fid = fopen(dataFile);
 data = fread(fid,inf,'int32');
 fclose(fid);
@@ -54,7 +62,7 @@ data = permute(data,[1 3 4 5 2]);% Make coil last dimmension
 data = reshape(data,[nPts nRaysPerKey*nKeys nAcq nCoils]); % Vectorize all but coil dimmension
 
 %% Read in trajectory
-trajFile = '/home/scott/Desktop/BrukerRecon/B03180/traj';
+trajFile = [ u_dir  '/Desktop/B03180/traj'];
 fid = fopen(trajFile);
 traj = fread(fid,inf,'double');
 fclose(fid);
@@ -93,7 +101,14 @@ slidingWindowReconVol = zeros([reconMatSize nWindows]);
 % calculations and the computation of system matrices
 startMod = mod(windowStartIdxs-1,samplesPerAcq)+1;
 [uniqueStarts,ia,ic] = unique(startMod); % find all unique trajectories
+
+% and yet he nevr uses either edges or counts.
+try % new code 2014b and newer
 [uniqueCounts, uniqueEdges] = histcounts(ic,length(uniqueStarts));
+catch me % old codeb pre. 
+[uniqueCounts, uniqueEdges] = histc(ic,length(uniqueStarts));
+end
+
 
 % Presort traj so parfor works...
 shit = struct;
