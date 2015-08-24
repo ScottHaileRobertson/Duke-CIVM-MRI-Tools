@@ -8,6 +8,7 @@ kernel.extent = 9*kernel.sharpness;
 % kernel.extent = 1.5;
 verbose = 1;
 nPipeIter = 10;
+%test
 
 pfile_path = filepath('/home/scott/Desktop/rohan_20150618')
 
