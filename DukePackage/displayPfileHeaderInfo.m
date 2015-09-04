@@ -27,11 +27,22 @@ else
     end
 end
 
+% Calculate exam date
+if(pfile.exam.ex_datetime == 0)
+    %Create exam and series dates in YYYY_MM_DD format
+    exam_timestamp = ['20' pfile.rdb.rdb_hdr_scan_date(8:9)' ...
+        '_' pfile.rdb.rdb_hdr_scan_date(1:2)' '_' ...
+        pfile.rdb.rdb_hdr_scan_date(4:5)'];
+else
+    date_number = pfile.exam.ex_datetime/86400 + datenum(1970,1,1);
+    exam_timestamp = datestr(date_number,'yyyy_mm_dd');
+end
 
 fprintf('Displaying header info for %s...\n',pfile.rdb.base_p_file);
 fprintf('\tName = %s\n',pfile.exam.patid');
 fprintf('\tSeries = %s\n',pfile.series.se_desc');
 fprintf('\tPulse Sequence = %s\n',pfile.image.psdname');
+fprintf('\tExam date (YYYY_MM_DD) = %s\n',exam_timestamp);
 fprintf('\tWeight = %0.0f lbs (%0.0f kg)\n',round(pfile.exam.patweight/453.592),round(pfile.exam.patweight/1000));
 fprintf('\tSeries = %s\n',pfile.series.se_desc');
 fprintf('\tTE=%f usec\n',pfile.image.te);

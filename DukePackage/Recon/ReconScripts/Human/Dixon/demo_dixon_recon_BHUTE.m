@@ -132,16 +132,6 @@ reconVol = reconObj.reconstruct(pfile.data, traj);
 %% Show the result
 imslice(abs(reconVol));
 
-% save the result
-[pathstr,name,ext] = fileparts(bhute_pfile);
-uteVol = reconVol;
-save([pathstr filesep() name '_bhute_recon.mat'],'uteVol');
-
-niiname = [pathstr filesep() name '_bhute_recon.nii'];
-nii = make_nii(abs(reconVol));
-save_nii(nii,niiname);
-
-
 %% Create segmentation mask
 nClusters = 3;
 dims = size(reconVol);
@@ -225,7 +215,14 @@ lung_mask = imerode(lung_mask2,ball);
 %% Show the result
 imslice(abs(reconVol).*~lung_mask,'Segmented thoracic cavity');
 
-% Save the result
+%% save the results
+[pathstr,name,ext] = fileparts(bhute_pfile);
+uteVol = reconVol;
+save([pathstr filesep() name '_bhute_recon.mat'],'uteVol');
+niiname = [pathstr filesep() name '_bhute_recon.nii'];
+nii = make_nii(abs(reconVol));
+save_nii(nii,niiname);
+
 save([pathstr filesep() name '_lungMask.mat'],'lung_mask');
 niiname = [pathstr filesep() name '_lungMask.nii'];
 nii = make_nii(abs(lung_mask));

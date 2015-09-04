@@ -1,7 +1,7 @@
 
 % Ask user for all pfiles
 disp('Locate Phase Calibration Pfile please...');
-phaseCal_pfile = filepath('/home/scott/Desktop');
+phaseCal_pfile = filepath();
 [pathstr,name,ext] = fileparts(phaseCal_pfile);
 disp('Locate Dixon Pfile please...');
 dixon_pfile = filepath(pathstr);
@@ -10,6 +10,7 @@ bhute_pfile = filepath(pathstr);
 
 % Perform phase calibration
 meanRbc2barrier = demo_dixon_phase_calibration(phaseCal_pfile);
+
 
 % Reconstruct ventilation/dissolved phase image
 demo_dixon_recon_ventDis(dixon_pfile);

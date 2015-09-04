@@ -133,10 +133,12 @@ rbc2bar_proj_inLung = rbc2bar_proj(withinLung);
 figure();
 subplot(2,1,1)
 plot(SI_units_inLung,rbc2bar_proj_inLung);
+ylabel('RBC:barrier');
+xlabel('S/I Position (mm)');
 subplot(2,1,2);
 plot(SI_units_inLung,inLungVox(withinLung),'.')
-ylabel('RBC:barrier');
-xlabel('S/I Position (cm)');
+ylabel('# Voxels in slice');
+xlabel('S/I Position (mm)');
 
 imslice(rbc_vol,'RBC')
 imslice(barrier_vol,'barrier')
