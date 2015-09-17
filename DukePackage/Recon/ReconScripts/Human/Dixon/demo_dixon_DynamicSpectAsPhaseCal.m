@@ -1,3 +1,12 @@
+function meanRbc2barrier = demo_dixon_DynamicSpectAsPhaseCal(varargin)
+
+if(nargin < 1 | ~exist(varargin{1}))
+    disp('Select Phase Calibration pfile');
+    pfile_path = filepath('/home/scott/Public/data/')
+else
+    pfile_path = varargin{1};
+end
+
 nToAvg = 15;
 skipSize = 1;
 startInhale = 1;
@@ -11,9 +20,6 @@ area_orig = [1 1 1];
 freq_orig = [-35 -393 -3765 ];
 fwhm_orig = [215 150 70];
 phase_orig = [0 0 0];
-
-% Find pfile
-pfile_path = filepath('/home/scott/Desktop/Subj65/P35840_fbspect.7')
 
 %% Read Raw Pfile and process pfile
 pfile = GE.Pfile.read(pfile_path);
@@ -58,7 +64,7 @@ minte = 700;
 % Calculate RBC:barrier, TE90, etc
 rbc_te90_idx = 1;
 barrier_te90_idx = 2;
-rbcToBarrier = nmrFit.area(1)/nmrFit.area(2);
+meanRbc2barrier = nmrFit.area(1)/nmrFit.area(2);
 deltaF = nmrFit.freq(barrier_te90_idx)-nmrFit.freq(rbc_te90_idx);
 deltaPhase = nmrFit.phase(barrier_te90_idx)-nmrFit.phase(rbc_te90_idx);
 time180 = abs(1/(2*deltaF));
@@ -74,4 +80,4 @@ while(te90>(minte+time180))
 end
 
 disp(['TE 90 =' num2str(te90)]);
-disp(['RBC:barrier =' num2str(rbcToBarrier)]);
+disp(['RBC:barrier =' num2str(meanRbc2barrier)]);
