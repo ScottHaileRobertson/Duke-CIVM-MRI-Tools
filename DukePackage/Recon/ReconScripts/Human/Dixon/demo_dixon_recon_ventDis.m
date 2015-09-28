@@ -9,23 +9,26 @@ end
 % Prepare to override values
 pfileOverride = GE.Pfile.Pfile();
 
-% % For subj 46
+% % For VERY OLD scan format (46)
 % output_image_sizeg = 64*[1 1 1];
 % output_image_sized = 64*[1 1 1];
 % overgrid_factor = 3;
-% gasKernel.sharpness = 0.14;
+% gasKernel.sharpness = 0.35;
 % gasKernel.extent = 9*gasKernel.sharpness;
-% dissolvedKernel.sharpness = 0.35;
+% dissolvedKernel.sharpness = 0.14;
 % dissolvedKernel.extent = 9*dissolvedKernel.sharpness;
 % verbose = 1;
 % nPipeIter = 25;
 % pfileOverride.rdb.rdb_hdr_user1  = 0.252; % pw_gxwa
 % pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 % pfileOverride.rdb.rdb_hdr_user44 = 1.024; % pw_gxw/1000
-% pfileOverride.rdb.rdb_hdr_user22 = 0.1325; %toff
-% pfileOverride.rdb.rdb_hdr_user32 = 1;
+% pfileOverride.rdb.rdb_hdr_user22 = 0.130; %toff
+% pfileOverride.rdb.rdb_hdr_user32 = 1; % Archimedian spiral
+% downstream_magFrames = 0;
+% rmBline = 0;
+% rmFirstGas = 0;
 
-% % For old 64^3
+% % For old format (46A,54)
 % output_image_sizeg = 64*[1 1 1];
 % output_image_sized = 64*[1 1 1];
 % overgrid_factor = 3;
@@ -39,9 +42,12 @@ pfileOverride = GE.Pfile.Pfile();
 % pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 % pfileOverride.rdb.rdb_hdr_user44 = 1.024; % pw_gxw/1000
 % pfileOverride.rdb.rdb_hdr_user22 = 0.1325; %toff
-% % pfileOverride.rdb.rdb_hdr_user32 = 1;  % for 46
+% pfileOverride.rdb.rdb_hdr_user32 = 0;  % Golden Means
+% downstream_magFrames = 50;
+% rmBline = 1;
+% rmFirstGas = 0;
 
-% For new 128^3
+% For most recent format (65)
 output_image_sizeg = 64*[1 1 1];
 output_image_sized = 64*[1 1 1];
 overgrid_factor = 3;
@@ -55,6 +61,10 @@ pfileOverride.rdb.rdb_hdr_user1  = 0.512; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
 pfileOverride.rdb.rdb_hdr_user44 = 1.536; % pw_gxw/1000
 pfileOverride.rdb.rdb_hdr_user22 = 0.125; %toff
+% pfileOverride.rdb.rdb_hdr_user32 = 0;  % Golden Means
+downstream_magFrames = 0;
+rmBline = 0;
+rmFirstGas = 1;
 
 deltaf_gas = 0;
 deltaf_dissolved = 0; %hz
@@ -85,17 +95,29 @@ end
 MRI.DataProcessing.checkForOverranging(pfile);
 
 % Remove baselines
-pfile = MRI.DataProcessing.removeBaselineViews(pfile);
-% pfile.data(:,1)=[];
-% pfile.rdb.rdb_hdr_user20 = pfile.rdb.rdb_hdr_user20 - 1; % Remove first frame
+if(rmBline)
+    pfile = MRI.DataProcessing.removeBaselineViews(pfile);
+end
 
 %% Split pfile into 2: disolved and gas
+if(pfile.rdb.rdb_hdr_ps_mps_freq == 176604450)
+    % dissolved first
+    startDissolved = 2;
+    startGas = 1;
+else
+    % gas first
+    startDissolved = 1;
+    startGas = 2;
+end
 dissolved_pfile = pfile;
-dissolved_pfile.data = dissolved_pfile.data(:,1:2:end);
+dissolved_pfile.data = dissolved_pfile.data(:,startDissolved:2:end);
 dissolved_pfile.rdb.rdb_hdr_user20 = size(dissolved_pfile.data,2);
 
 gas_pfile = pfile;
-gas_pfile.data = gas_pfile.data(:,2:2:end);
+gas_pfile.data = gas_pfile.data(:,startGas:2:end);
+if(rmFirstGas)
+    gas_pfile.data = gas_pfile.data(:,2:end);
+end
 gas_pfile.rdb.rdb_hdr_user20 = size(gas_pfile.data,2);
 
 %% Calculate trajectories (will be same for both pfiles)
@@ -129,8 +151,7 @@ gas_pfile.data = gas_pfile.data.*exp(1i*2*pi*deltaf_gas*tMatg);
 MRI.DataProcessing.calculateNyquistMatrixSize(radialDistanced, dissolved_pfile);
 MRI.DataProcessing.calculateNyquistMatrixSize(radialDistanceg, gas_pfile);
 
-% Throw away first 50 frames of dissolved data to remove downstream mag
-downstream_magFrames = 50;
+% Throw away frames of dissolved data to remove downstream mag
 dissolved_pfile.data = dissolved_pfile.data(:,(downstream_magFrames+1):end);
 dissolved_pfile.rdb.rdb_hdr_user20 = size(dissolved_pfile.data,2); % Update header
 trajd = trajd(:,(downstream_magFrames+1):end,:);
