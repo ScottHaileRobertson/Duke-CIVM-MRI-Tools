@@ -5,9 +5,11 @@ if(nargin < 1 | ~exist(varargin{1}))
 else
     dixon_pfile = varargin{1};
 end
-    
+
 % Prepare to override values
 pfileOverride = GE.Pfile.Pfile();
+
+clear startDissolved startGas;
 
 % % For VERY OLD scan format (46)
 % output_image_sizeg = 64*[1 1 1];
@@ -49,7 +51,7 @@ pfileOverride = GE.Pfile.Pfile();
 % rmFirstGas = 0;
 % rmFirstDis = 0;
 
-% For most recent format (65)
+% For 64
 output_image_sizeg = 64*[1 1 1];
 output_image_sized = 64*[1 1 1];
 overgrid_factor = 3;
@@ -59,15 +61,37 @@ dissolvedKernel.sharpness = 0.14;
 dissolvedKernel.extent = 9*dissolvedKernel.sharpness;
 verbose = 1;
 nPipeIter = 25;
-pfileOverride.rdb.rdb_hdr_user1  = 0.512; % pw_gxwa
+pfileOverride.rdb.rdb_hdr_user1  = 0.508; % pw_gxwa
 pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
-pfileOverride.rdb.rdb_hdr_user44 = 1.536; % pw_gxw/1000
+pfileOverride.rdb.rdb_hdr_user44 = 2.048; % pw_gxw/1000
 pfileOverride.rdb.rdb_hdr_user22 = 0.125; %toff
 % pfileOverride.rdb.rdb_hdr_user32 = 0;  % Golden Means
 downstream_magFrames = 50;
 rmBline = 0;
 rmFirstGas = 1;
 rmFirstDis = 0;
+startDissolved = 2;
+startGas = 1;
+
+% % For most recent format (65)
+% output_image_sizeg = 64*[1 1 1];
+% output_image_sized = 64*[1 1 1];
+% overgrid_factor = 3;
+% gasKernel.sharpness = 0.32;
+% gasKernel.extent = 9*gasKernel.sharpness;
+% dissolvedKernel.sharpness = 0.14;
+% dissolvedKernel.extent = 9*dissolvedKernel.sharpness;
+% verbose = 1;
+% nPipeIter = 25;
+% pfileOverride.rdb.rdb_hdr_user1  = 0.512; % pw_gxwa
+% pfileOverride.rdb.rdb_hdr_user38 = 0.2;  % pw_gxwd/1000
+% pfileOverride.rdb.rdb_hdr_user44 = 1.536; % pw_gxw/1000
+% pfileOverride.rdb.rdb_hdr_user22 = 0.125; %toff
+% % pfileOverride.rdb.rdb_hdr_user32 = 0;  % Golden Means
+% downstream_magFrames = 50;
+% rmBline = 0;
+% rmFirstGas = 1;
+% rmFirstDis = 0;
 
 deltaf_gas = 0;
 deltaf_dissolved = 0; %hz
@@ -103,14 +127,16 @@ if(rmBline)
 end
 
 %% Split pfile into 2: disolved and gas
-if(pfile.rdb.rdb_hdr_ps_mps_freq == 176604450)
-    % dissolved first
-    startDissolved = 2;
-    startGas = 1;
-else
-    % gas first
-    startDissolved = 1;
-    startGas = 2;
+if(~exist('startDissolved') & ~exist('startGas'))
+    if(pfile.rdb.rdb_hdr_ps_mps_freq == 176604450)
+        % dissolved first
+        startDissolved = 2;
+        startGas = 1;
+    else
+        % gas first
+        startDissolved = 1;
+        startGas = 2;
+    end
 end
 dissolved_pfile = pfile;
 dissolved_pfile.data = dissolved_pfile.data(:,startDissolved:2:end);
