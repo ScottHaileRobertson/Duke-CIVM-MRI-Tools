@@ -9,11 +9,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-code_path='/Users/james/Desktop/DCE_proto';
-run([code_path '/Duke-CIVM-MRI-Tools/setup.m']);
-run([code_path '/GE-MRI-Tools/setup.m']);
-run([code_path '/Non-Cartesian-Reconstruction/setup.m'])
-u_dir='/Users/james/';
+% code_path='/Users/james/Desktop/DCE_proto';
+% run([code_path '/Duke-CIVM-MRI-Tools/setup.m']);
+% run([code_path '/GE-MRI-Tools/setup.m']);
+% run([code_path '/Non-Cartesian-Reconstruction/setup.m'])
+% u_dir='/Users/james/';
 
 %% Slow (but decent) Reconstruction parameters
 scale = 1;
@@ -27,7 +27,7 @@ crop = 0;
 
 
 %% Find directory containing all information
-reconDir = [u_dir '/Desktop/B03180/'];
+reconDir = ['/home/scott/code/dev/BrukerRecon/B03180/'];
 
 %% Read the header file to get scan info
 % This could be done nicer by reading the header, etc. - I was lazy and hard-coded
@@ -52,7 +52,7 @@ keysPerWindow = nPts*nRaysPerKey*13; % 10 keys of data (I like 10-15 for this da
 windowStep = nPts*nRaysPerKey*1; % Step by one key of data
 
 %% Read in fid data, put in 
-dataFile = [ u_dir  '/Desktop/B03180/fid'];
+dataFile = [ reconDir 'fid'];
 fid = fopen(dataFile);
 data = fread(fid,inf,'int32');
 fclose(fid);
@@ -62,22 +62,13 @@ data = permute(data,[1 3 4 5 2]);% Make coil last dimmension
 data = reshape(data,[nPts nRaysPerKey*nKeys nAcq nCoils]); % Vectorize all but coil dimmension
 
 %% Read in trajectory
-trajFile = [ u_dir  '/Desktop/B03180/traj'];
+trajFile = [ reconDir  'traj'];
 fid = fopen(trajFile);
 traj = fread(fid,inf,'double');
 fclose(fid);
 traj = reshape(traj,[3 nPts nRaysPerKey nKeys]); % put trajectory into matrix form
 traj = permute(traj,[2 3 4 1]); % Put [kx,ky,kz] dimmension last
 traj = reshape(traj,[nPts nRaysPerKey*nKeys 3])/scale; % vectorize keys and Acq
-
-% % % Throw away any aliased data
-% aliased_Pts = any(any(abs(traj)>=0.5,3),2);
-% nPts = sum(~aliased_Pts);
-% traj = traj(1:nPts,:,:);
-% data = data(1:nPts,:,:,:);
-% keysPerWindow = nPts*nRaysPerKey*13; % 13 keys of data 
-% windowStep = nPts*nRaysPerKey*1; % Step by one key of data
-% samplesPerAcq = nPts*nRaysPerKey*nKeys;
 
 % Vectorize data and traj
 traj = reshape(traj,[nPts*nRaysPerKey*nKeys 3]); % vectorize all but [kx,ky,kz] dimmension
@@ -111,51 +102,51 @@ end
 
 
 % Presort traj so parfor works...
-shit = struct;
+store = struct;
 nSysMat = length(uniqueStarts);
-% shit.deltaInput = ones([keysPerWindow 1]);
+% store.deltaInput = ones([keysPerWindow 1]);
 % deapVol = zeros(overgrid_mat_size);
-shit.tmpVol = zeros(overgrid_mat_size);
+store.tmpVol = zeros(overgrid_mat_size);
 disp(['Completed 0/' num2str(nSysMat) ' traj subsets']);
-shit.windowTraj = zeros([keysPerWindow 3]);
+store.windowTraj = zeros([keysPerWindow 3]);
 
 
 for iSysMat = 1:nSysMat % This can be done in parallel, but takes LOTS of memory
     % Make a trajectory for each window
-    shit.windowTraj = squeeze(traj(mod(uniqueStarts(iSysMat)+[0:(keysPerWindow-1)]-1,samplesPerAcq)+1,:));
+    store.windowTraj = squeeze(traj(mod(uniqueStarts(iSysMat)+[0:(keysPerWindow-1)]-1,samplesPerAcq)+1,:));
         
     % Construct system model for this trajectory
     disp('   Creating System model');
-    shit.systemObj = Recon.SysModel.MatrixSystemModel(shit.windowTraj, oversampling, ...
+    store.systemObj = Recon.SysModel.MatrixSystemModel(store.windowTraj, oversampling, ...
         scaled_output_size, proxObj, verbose);   % This can be stored
     
     % Calculate (Pipe) Iterative Density Compensation weights
     disp('   Calculating DCF');
-    shit.dcfObj = Recon.DCF.Iterative(shit.systemObj, nPipeIter, verbose); % This can be stored
+    store.dcfObj = Recon.DCF.Iterative(store.systemObj, nPipeIter, verbose); % This can be stored
      
 %     % Compute deapodization volume for this traj
 %     disp('   Calculating Deapodization');
-%     deapVol = systemObj'*(shit.deltaInput.*dcfObj.dcf);
+%     deapVol = systemObj'*(store.deltaInput.*dcfObj.dcf);
 %     deapVol = reshape(full(deapVol),overgrid_mat_size); % make unsparse;
 %     deapVol = ifftshift(ifftn(deapVol));
     
     % Create a data matrix of all repetitions of this trajectory
     sameStartIdx = find(ic==iSysMat); 
     nSameStart = length(sameStartIdx);
-    shit.dataIdxRep = repmat(windowStartIdxs(sameStartIdx),[keysPerWindow 1]) + repmat([0:(keysPerWindow-1)]',[1 nSameStart]);
-    shit.windowData = reshape(data(shit.dataIdxRep(:),:),[keysPerWindow nSameStart*nCoils]);
-    shit.dcfRep = repmat(shit.dcfObj.dcf,[1 nSameStart*nCoils]);
+    store.dataIdxRep = repmat(windowStartIdxs(sameStartIdx),[keysPerWindow 1]) + repmat([0:(keysPerWindow-1)]',[1 nSameStart]);
+    store.windowData = reshape(data(store.dataIdxRep(:),:),[keysPerWindow nSameStart*nCoils]);
+    store.dcfRep = repmat(store.dcfObj.dcf,[1 nSameStart*nCoils]);
 %     clear dcfObj;
     
     % Grid all data that share this trajectory
     disp(['   Gridding (' num2str(nSameStart) ' time points)x(' num2str(nCoils) ' coil channels) datasets...']);
-    shit.windowData = shit.windowData.*shit.dcfRep;
-    shit.ATrans = shit.systemObj.ATrans;
-    shit.windowRecon = shit.ATrans*shit.windowData; % We will get a huge speek boost if you can get this to take more advantage of CPU
+    store.windowData = store.windowData.*store.dcfRep;
+    store.ATrans = store.systemObj.ATrans;
+    store.windowRecon = store.ATrans*store.windowData; % We will get a huge speek boost if you can get this to take more advantage of CPU
     
     % Perform SOS across coil channels;
     disp(['   Performing IFFT and SOS on ' num2str(nSameStart) ' time points and ' num2str(nCoils) ' coils...']);
-    shit.windowRecon = reshape(shit.windowRecon, [size(shit.systemObj.A,2) nSameStart nCoils]);
+    store.windowRecon = reshape(store.windowRecon, [size(store.systemObj.A,2) nSameStart nCoils]);
 %     clear systemObj;
 
     for iSameStart = 1:nSameStart 
@@ -164,11 +155,11 @@ for iSysMat = 1:nSysMat % This can be done in parallel, but takes LOTS of memory
         
         for iCoil = 1:nCoils
             % Reconstruct image domain with IFFT
-            shit.tmpVol = reshape(full(shit.windowRecon(:,iSameStart, iCoil)),overgrid_mat_size); % make unsparse;
-            shit.tmpVol = ifftshift(ifftn(shit.tmpVol));
+            store.tmpVol = reshape(full(store.windowRecon(:,iSameStart, iCoil)),overgrid_mat_size); % make unsparse;
+            store.tmpVol = ifftshift(ifftn(store.tmpVol));
             
             % Accumulate SOS
-            slidingWindowReconVol(:,:,:,iWindow) = slidingWindowReconVol(:,:,:,iWindow) + shit.tmpVol.^2;%(shit.tmpVol.*conj(shit.tmpVol));
+            slidingWindowReconVol(:,:,:,iWindow) = slidingWindowReconVol(:,:,:,iWindow) + store.tmpVol.^2;%(store.tmpVol.*conj(store.tmpVol));
             disp(['      Finished Coil ' num2str(iCoil) '/' num2str(nCoils)]);
         end
                 

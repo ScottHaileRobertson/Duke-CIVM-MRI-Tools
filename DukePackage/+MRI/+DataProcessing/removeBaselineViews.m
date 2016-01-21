@@ -15,7 +15,7 @@ function [pfile] = removeBaselineViews(pfile)
 	npts = pfile.rdb.rdb_hdr_frame_size;
 	
 	% Remove baselines views
-	pfile.data(:, 1:baseline_skip_size:nframes) = []; 
+	pfile.data(:, 1:baseline_skip_size:end) = []; 
 
 	% Update pfile header to keep it in sync with data
 	pfile.rdb.rdb_hdr_user20 = length(pfile.data(:))/npts;
