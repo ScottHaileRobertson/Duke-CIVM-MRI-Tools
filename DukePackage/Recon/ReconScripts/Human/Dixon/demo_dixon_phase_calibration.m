@@ -21,8 +21,16 @@ rbc_te90_idx = 1;
 barrier_te90_idx = 2;
 gas_idx = 3;
 
-%%4peaks
-%   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
+dis_fit_5guess = [
+    1           0            215          0; % Component #1
+    1           -280           200          0; % Component #2
+    1           -380           115          0; % Component #3
+    1           -3835           30          0; % Component #4
+    1           -3860           60          0; % Component #4
+    ];
+
+% %4peaks
+% %   Amplitude   Frequency(Hz)   FWHM(Hz)    Phase(deg)
 % dis_fit_guess = [
 %     1           -28            190          0; % Component #1
 %     1           -290           200          0; % Component #2
@@ -179,13 +187,29 @@ for iTE = 1:nTE
     teData = dis_pfile.data(:,(skipDownstreamFrames*nTE+iTE):nTE:end);
     teData = mean(teData,2);
     
-    % Force zero phase at latest TE to align all FIDs
+    % Perform 5-peak fit to find RBC frequency
+    nmrFit = NMR_TimeFit(teData, t, ...
+        dis_fit_5guess(:,1),dis_fit_5guess(:,2),...
+        dis_fit_5guess(:,3),dis_fit_5guess(:,4),...
+        linebroadening, zeropadsize);
+    nmrFit = nmrFit.fitTimeDomainSignal();  
+    
+    
+    % Perform 5-peak fit after constraining RBC freq
+    dis_fit_guess(1,2) = nmrFit.freq(1);
+    rbcArea = nmrFit.area(1);
+    barrierArea = sum(nmrFit.area(2:3));
+    gasArea = sum(nmrFit.area(4:5));
+    dis_fit_guess(1,1) = nmrFit.area(1);
+    dis_fit_guess(2,1) = nmrFit.area(2);
+    dis_fit_guess(3,1) = gasArea;
     nmrFit = NMR_TimeFit(teData, t, ...
         dis_fit_guess(:,1),dis_fit_guess(:,2),...
         dis_fit_guess(:,3),dis_fit_guess(:,4),...
         linebroadening, zeropadsize);
+    nmrFit.setBounds([0.3*rbcArea 0.3*barrierArea 0.3*gasArea],[inf inf inf],[nmrFit.freq(1)-0.001 -inf -inf ],[nmrFit.freq(1)+0.001 inf inf],[-inf -inf -inf],[inf inf inf],[-inf -inf -inf],[inf inf inf]);
     nmrFit = nmrFit.fitTimeDomainSignal();  
-
+    
     startingVec = nmrFit.calcTimeDomainSignal(TEs(nTE)-TEs(iTE));
     startingPhase = angle(startingVec);
     teData = teData.*exp(-1i*startingPhase);
@@ -259,11 +283,11 @@ for iTE = 1:nTE
     % Show phase relative to RBC
     ax2 = subplot(3,1,2);
     hold on;
-    line((relTimeVals)*1E6,rad2deg(angle(onRbcCompSig(:,rbc_idx))),'Color',colors(1,:),'Linestyle',linestyles{iTE},'Parent',ax2);
+    line((relTimeVals)*1E6,(180/pi)*(angle(onRbcCompSig(:,rbc_idx))),'Color',colors(1,:),'Linestyle',linestyles{iTE},'Parent',ax2);
     for ibar = 1:length(barrier_idx)
-        line((relTimeVals)*1E6,rad2deg(angle(onRbcCompSig(:,1+ibar))),'Color',colors(1+ibar,:),'Linestyle',linestyles{iTE},'Parent',ax2);
+        line((relTimeVals)*1E6,(180/pi)*(angle(onRbcCompSig(:,1+ibar))),'Color',colors(1+ibar,:),'Linestyle',linestyles{iTE},'Parent',ax2);
     end
-    line((relTimeVals)*1E6,rad2deg(angle(onRbcSig)),'Color','k','Linestyle',linestyles{iTE},'Parent',ax2);
+    line((relTimeVals)*1E6,(180/pi)*(angle(onRbcSig)),'Color','k','Linestyle',linestyles{iTE},'Parent',ax2);
     hold off;
     xlabel('Time (usec)');
     ylabel('Relative Phase (Degrees)');
