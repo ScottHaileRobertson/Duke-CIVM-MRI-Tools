@@ -2,7 +2,7 @@ function meanRbc2barrier = demo_dixon_phase_calibration(varargin)
 
 if(nargin < 1 | ~exist(varargin{1}))
     disp('Select Phase Calibration pfile');
-    phaseCal_pfile = filepath('/home/scott/Public/data/')
+    phaseCal_pfile = filepath('C:\Users\Scott\Downloads\')
 else
     phaseCal_pfile = varargin{1};
 end
@@ -187,28 +187,32 @@ for iTE = 1:nTE
     teData = dis_pfile.data(:,(skipDownstreamFrames*nTE+iTE):nTE:end);
     teData = mean(teData,2);
     
-    % Perform 5-peak fit to find RBC frequency
-    nmrFit = NMR_TimeFit(teData, t, ...
-        dis_fit_5guess(:,1),dis_fit_5guess(:,2),...
-        dis_fit_5guess(:,3),dis_fit_5guess(:,4),...
-        linebroadening, zeropadsize);
-    nmrFit = nmrFit.fitTimeDomainSignal();  
+    if(exist('dis_fit_5guess','var'))
+        % Perform 5-peak fit to find RBC frequency
+        nmrFit = NMR_TimeFit(teData, t, ...
+            dis_fit_5guess(:,1),dis_fit_5guess(:,2),...
+            dis_fit_5guess(:,3),dis_fit_5guess(:,4),...
+            linebroadening, zeropadsize);
+        nmrFit = nmrFit.fitTimeDomainSignal();
     
+        % Perform 3-peak fit after constraining RBC freq
+        dis_fit_guess(1,2) = nmrFit.freq(1);
+        rbcArea = nmrFit.area(1);
+        barrierArea = sum(nmrFit.area(2:3));
+        gasArea = sum(nmrFit.area(4:5));
+        dis_fit_guess(1,1) = nmrFit.area(1);
+        dis_fit_guess(2,1) = nmrFit.area(2);
+        dis_fit_guess(3,1) = gasArea;
+    end
     
-    % Perform 5-peak fit after constraining RBC freq
-    dis_fit_guess(1,2) = nmrFit.freq(1);
-    rbcArea = nmrFit.area(1);
-    barrierArea = sum(nmrFit.area(2:3));
-    gasArea = sum(nmrFit.area(4:5));
-    dis_fit_guess(1,1) = nmrFit.area(1);
-    dis_fit_guess(2,1) = nmrFit.area(2);
-    dis_fit_guess(3,1) = gasArea;
     nmrFit = NMR_TimeFit(teData, t, ...
         dis_fit_guess(:,1),dis_fit_guess(:,2),...
         dis_fit_guess(:,3),dis_fit_guess(:,4),...
         linebroadening, zeropadsize);
-    nmrFit.setBounds([0.3*rbcArea 0.3*barrierArea 0.3*gasArea],[inf inf inf],[nmrFit.freq(1)-0.001 -inf -inf ],[nmrFit.freq(1)+0.001 inf inf],[-inf -inf -inf],[inf inf inf],[-inf -inf -inf],[inf inf inf]);
-    nmrFit = nmrFit.fitTimeDomainSignal();  
+    if(exist('dis_fit_5guess','var'))
+        nmrFit.setBounds([0.1*rbcArea 0.1*barrierArea 0.1*gasArea],[inf inf inf],[nmrFit.freq(1)-0.001 -inf -inf ],[nmrFit.freq(1)+0.001 inf inf],[-inf -inf -inf],[inf inf inf],[-inf -inf -inf],[inf inf inf]);
+    end
+    nmrFit = nmrFit.fitTimeDomainSignal();
     
     startingVec = nmrFit.calcTimeDomainSignal(TEs(nTE)-TEs(iTE));
     startingPhase = angle(startingVec);
